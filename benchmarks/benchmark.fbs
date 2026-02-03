@@ -1,0 +1,49 @@
+// FlatBuffers schema for ZMEM benchmark comparison
+
+namespace benchmark;
+
+struct Vec3 {
+   x: double;
+   y: double;
+   z: double;
+}
+
+table FixedObject {
+   int_array: [int];
+   float_array: [float];
+   double_array: [double];
+}
+
+table NestedObject {
+   v3s: [Vec3];
+   id: string;
+}
+
+table AnotherObject {
+   string: string;
+   another_string: string;
+   escaped_text: string;
+   boolean: bool;
+   nested_object: NestedObject;
+}
+
+table FixedNameObject {
+   name0: string;
+   name1: string;
+   name2: string;
+   name3: string;
+   name4: string;
+}
+
+table TestObject {
+   fixed_object: FixedObject;
+   fixed_name_object: FixedNameObject;
+   another_object: AnotherObject;
+   string_array: [string];
+   string: string;
+   number: double;
+   boolean: bool;
+   another_bool: bool;
+}
+
+root_type TestObject;

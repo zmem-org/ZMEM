@@ -1,2 +1,160 @@
 # ZMEM
-Extremely fast binary message format with zero memory overhead for fixed structs and zero copy access
+
+A high-performance binary serialization format with **zero overhead** for fixed structs and **zero-copy** access.
+
+## Overview
+
+ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization performance is critical: high-frequency trading, game networking, real-time systems, and inter-process communication. Unlike formats that prioritize schema evolution, ZMEM prioritizes raw speed by requiring all communicating parties use identical schemas at compile time.
+
+### Key Features
+
+- **Zero overhead for fixed structs** - Direct `memcpy` serialization with no headers, pointers, or metadata
+- **Zero-copy deserialization** - Access data in-place without parsing or allocation
+- **Native mutable state** - Fixed structs can serve as your application's data model directly
+- **Natural alignment** - 1/2/4/8/16-byte alignment (not forced 64-bit words)
+- **Deterministic output** - Identical data always produces identical bytes (content-addressable storage friendly)
+- **Memory-mapped file support** - O(1) random access to any field in large files
+- **Large data support** - 64-bit size headers support documents up to 2^64 bytes and arrays up to 2^64 elements
+
+### Design Philosophy
+
+ZMEM makes an explicit trade-off: **no schema evolution in exchange for maximum performance**. This is the right choice when:
+
+- All parties are deployed together (IPC, game client/server, embedded systems)
+- Performance matters more than independent versioning
+- Data is transient (real-time telemetry, frame data, market data)
+
+If you need schema evolution, consider Protocol Buffers, FlatBuffers, BEVE, or Cap'n Proto instead.
+
+## Quick Example
+
+### Schema Definition
+
+```
+version 1.0.0
+
+namespace game
+
+struct Vec3 {
+  x::f32
+  y::f32
+  z::f32
+}
+
+struct Player {
+  id::u64
+  name::str[64]
+  position::Vec3
+  health::f32 = 100.0
+  inventory::[u32]
+}
+```
+
+### Wire Format Comparison
+
+| Structure | ZMEM | Cap'n Proto | FlatBuffers |
+|-----------|------|-------------|-------------|
+| `Point { x, y: f32 }` | **8 bytes** | 24 bytes | 20 bytes |
+| `Vec3 { x, y, z: f32 }` | **12 bytes** | 24 bytes | 20 bytes |
+| Empty struct | **0 bytes** | 16 bytes | 4 bytes |
+
+For fixed structs, ZMEM has literally zero overhead—the wire format is identical to the in-memory representation.
+
+## Type System
+
+### Primitives
+
+| Type | Size | Description |
+|------|------|-------------|
+| `bool` | 1 byte | Boolean value |
+| `i8`, `i16`, `i32`, `i64`, `i128` | 1-16 bytes | Signed integers |
+| `u8`, `u16`, `u32`, `u64`, `u128` | 1-16 bytes | Unsigned integers |
+| `f16`, `f32`, `f64` | 2-8 bytes | IEEE 754 floats |
+| `bf16` | 2 bytes | Brain float (ML applications) |
+
+### Compound Types
+
+| Syntax | Description | Example |
+|--------|-------------|---------|
+| `str[N]` | Fixed-size string (N bytes, null-terminated) | `str[64]` |
+| `string` | Variable-length string | `string` |
+| `T[N]` | Fixed array | `f32[4]`, `Vec3[3]` |
+| `[T]` | Vector (variable length) | `[f32]`, `[Player]` |
+| `opt<T>` | Optional value | `opt<u64>` |
+| `map<K,V>` | Sorted key-value pairs | `map<u32, str[64]>` |
+| `enum Name : T` | Enumeration | `enum Status : u8 { ... }` |
+| `union Name : T` | Tagged union | `union Result : u32 { ... }` |
+
+### Type Aliases and Constants
+
+```
+const MAX_NAME::u32 = 64
+const ORIGIN::f32[3] = [0.0, 0.0, 0.0]
+
+type PlayerId = u64
+type Name = str[MAX_NAME]
+type Color = u8[4]
+```
+
+## Fixed vs Variable Types
+
+ZMEM categorizes types into two categories:
+
+### Fixed Types (Zero Overhead)
+
+Fixed types are trivially copyable and serialize with a direct `memcpy`:
+
+```cpp
+struct Particle {
+    uint64_t id;
+    float position[3];
+    float velocity[3];
+    float mass;
+};
+// sizeof(Particle) == wire size == 36 bytes
+// Serialization: memcpy(buffer, &particle, 36)
+```
+
+### Variable Types (Minimal Overhead)
+
+Structs containing vectors or variable-length strings use an 8-byte size header plus 16-byte references for each variable field:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ [Size: 8 bytes] [Inline Section] [Variable Data Section]     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## When to Use ZMEM
+
+| Use Case | ZMEM | Alternatives |
+|----------|------|--------------|
+| IPC / Shared memory | Ideal | - |
+| Game networking | Ideal | - |
+| High-frequency trading | Ideal | SBE |
+| Real-time telemetry | Ideal | - |
+| Memory-mapped files | Ideal | - |
+| Microservices (independent deployment) | Not suitable | Protobuf, BEVE |
+| Long-term storage with evolution | Not suitable | BEVE, Avro |
+| Browser/server communication | Not suitable | JSON, BEVE, Protobuf |
+
+## Documentation
+
+- [ZMEM Basics](docs/ZMEM_BASICS.md) - Beginner-friendly introduction
+- [ZMEM Format Specification](docs/ZMEM_FORMAT.md) - Complete format specification
+- [ZMEM Comparisons](docs/ZMEM_COMPARISONS.md) - Quick comparison with other formats
+- [ZMEM vs Cap'n Proto](docs/ZMEM_VS_CAPNPROTO.md) - Detailed technical comparison
+- [ZMEM vs FlatBuffers](docs/ZMEM_VS_FLATBUFFERS.md) - Detailed technical comparison
+
+## Performance Characteristics
+
+| Operation | ZMEM (Fixed) | ZMEM (Variable) | Cap'n Proto | FlatBuffers |
+|-----------|--------------|-----------------|-------------|-------------|
+| Serialize small struct | `memcpy` | Single pass | Arena + setup | Builder + copy |
+| Deserialize | Cast or `memcpy` | Wrap buffer | Wrap buffer | Wrap buffer |
+| Field access | Compile-time offset | Compile-time offset | Pointer chase | vtable lookup |
+| Random access (mmap) | O(1) direct | O(1) with offset | O(1) with pointer | O(1) with vtable |
+
+## License
+
+[MIT License](LICENSE)
