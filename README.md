@@ -162,14 +162,15 @@ Fixed types are trivially copyable and serialize with a direct `memcpy`. Struct 
 
 ```cpp
 struct Particle {
-    uint64_t id;
-    float position[3];
-    float velocity[3];
-    float mass;
+    uint64_t id;        // 8 bytes
+    float position[3];  // 12 bytes
+    float velocity[3];  // 12 bytes
+    float mass;         // 4 bytes
+    // 4 bytes tail padding (struct alignment = 8)
 };
-// sizeof(Particle) == 36 bytes
-// Wire size: 40 bytes (padded to multiple of 8)
-// Serialization: memcpy + 4 bytes padding
+// sizeof(Particle) == 40 bytes (36 data + 4 padding)
+// Wire size: 40 bytes (already multiple of 8)
+// Serialization: direct memcpy
 ```
 
 ### Variable Types (Minimal Overhead)
