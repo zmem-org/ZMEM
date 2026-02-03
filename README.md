@@ -44,6 +44,44 @@ ZMEM makes an explicit trade-off: **no schema evolution in exchange for maximum 
 
 If you need schema evolution, consider Protocol Buffers, FlatBuffers, BEVE, or Cap'n Proto instead.
 
+### Why ZMEM is Faster than FlatBuffers
+
+With FlatBuffers, you define types in a `.fbs` schema file and run a code generator. For structs containing strings or vectors, you must use the builder pattern:
+
+```cpp
+// FlatBuffers: Schema file + code generation + builder pattern
+flatbuffers::FlatBufferBuilder builder;
+auto name = builder.CreateString("Alice");
+auto scores = builder.CreateVector(std::vector<float>{95.5f, 87.0f, 91.5f});
+auto player = CreatePlayer(builder, 42, name, scores);
+builder.Finish(player);
+```
+
+With ZMEM, you use your existing C++ structs directly—no schema file, no code generation, no builder:
+
+```cpp
+// ZMEM: Use native C++ types directly
+struct Player {
+    uint64_t id;
+    std::string name;
+    std::vector<float> scores;
+};
+
+Player player{42, "Alice", {95.5f, 87.0f, 91.5f}};
+std::string buffer;
+glz::write_zmem(player, buffer);  // That's it
+```
+
+| | FlatBuffers | ZMEM |
+|--|-------------|------|
+| Schema definition | `.fbs` file required | Use C++ structs directly |
+| Code generation | Required (`flatc`) | None (uses reflection) |
+| Serialization API | Builder pattern | Single function call |
+| `std::string` / `std::vector` | Supported (via builder) | Supported (native) |
+| Schema evolution | Yes | No |
+
+ZMEM's simpler serialization path—no builder objects, no intermediate allocations, no vtable construction—is why it achieves ~3x higher write throughput than FlatBuffers.
+
 ## Quick Example
 
 ### Schema Definition
