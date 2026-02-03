@@ -2772,6 +2772,7 @@ ZMEM uses **natural alignment** for fields within structs and **8-byte alignment
 3. **Padding**: Inserted as needed to satisfy alignment constraints
    - Between fields to align subsequent fields
    - At end of struct to ensure wire size is a **multiple of 8 bytes**
+   - **All padding bytes MUST be zero** (see Deterministic Serialization below)
 
 4. **Fixed struct sizes**: All fixed struct wire sizes are padded to **multiples of 8 bytes**. This ensures safe zero-copy access in arrays/vectors of structs.
 
@@ -2800,6 +2801,63 @@ ZMEM uses **natural alignment** for fields within structs and **8-byte alignment
 - Use `memcpy` to a properly aligned local variable before access
 
 Most modern platforms (x86, x86-64, ARMv7+, Apple Silicon) support unaligned access with minimal or no performance penalty.
+
+### Deterministic Serialization (Zero-Padding Rule)
+
+**All padding bytes MUST be zero.** This is a critical requirement for ZMEM's deterministic output guarantee.
+
+#### Why Zero Padding?
+
+Without zero-padding, identical logical values can produce different serialized bytes:
+
+```cpp
+struct Example {
+    uint8_t a;   // offset 0
+    // 3 bytes padding (offsets 1-3)
+    uint32_t b;  // offset 4
+};
+
+Example e1{1, 2};  // Padding bytes contain garbage
+Example e2{1, 2};  // Different garbage in padding
+
+// Without zero-padding rule:
+// serialize(e1) != serialize(e2)  // WRONG - breaks determinism
+```
+
+#### Requirements
+
+1. **Internal struct padding**: Padding between fields must be zero
+2. **Tail padding**: Padding at end of struct (to alignment) must be zero
+3. **Wire padding**: Padding to 8-byte boundary must be zero
+4. **Union padding**: Unused bytes in union variants must be zero
+5. **Optional padding**: When `present == 0`, all value bytes must be zero
+
+#### Benefits
+
+- **Deterministic output**: Same logical value → same bytes (always)
+- **Content-addressable storage**: Hashing serialized data works correctly
+- **memcmp equality**: Byte comparison matches logical equality
+- **Security**: No memory leakage through uninitialized padding bytes
+
+#### Implementation
+
+Zero-initialize structs before populating fields:
+
+```cpp
+// WRONG: Copies uninitialized padding
+Example e;
+e.a = 1;
+e.b = 2;
+memcpy(buf, &e, sizeof(e));  // Padding contains garbage!
+
+// CORRECT: Zero-initialize first
+Example e{};  // Zero-initialized, including padding
+e.a = 1;
+e.b = 2;
+memcpy(buf, &e, sizeof(e));  // Safe - padding is zero
+```
+
+**Performance note**: Modern compilers optimize zero-initialization well, and the cost is negligible compared to I/O.
 
 ### Layout Algorithm
 
@@ -2929,12 +2987,14 @@ For serializing a trivially-copyable struct (no vector fields):
 
 | Field | Size | Description |
 |-------|------|-------------|
-| Payload | sizeof(T) | Raw struct bytes, directly memcpy-able |
-| Padding | 0-7 bytes | Padding to 8-byte boundary |
+| Payload | sizeof(T) | Struct bytes with all internal padding zeroed |
+| Padding | 0-7 bytes | Zero bytes to 8-byte boundary |
 
 **Total message size**: `(sizeof(T) + 7) & ~7` — **minimal overhead** (only padding)
 
-This enables maximum performance: serialize with `memcpy` plus padding bytes, deserialize with `memcpy(&struct, buf, sizeof(T))` or direct pointer cast (skipping padding).
+**Important**: All padding bytes (internal struct padding AND tail padding to 8-byte boundary) must be zero for deterministic serialization. See "Deterministic Serialization (Zero-Padding Rule)" above.
+
+For deserialization: `memcpy(&struct, buf, sizeof(T))` or direct pointer cast (skipping wire padding).
 
 ---
 
