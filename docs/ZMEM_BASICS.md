@@ -177,10 +177,10 @@ The offset table enables O(1) access to any element without scanning.
 | Type | Wire Format | Overhead |
 |------|-------------|----------|
 | Primitives (in struct) | Direct bytes (little-endian) | 0 bytes |
-| Fixed struct | Direct bytes + padding to 8-byte boundary | 0-7 bytes |
-| Fixed array | Direct bytes + per-element padding | 0-7 bytes/element |
+| Fixed struct (top-level) | Direct bytes + padding to 8-byte boundary | 0-7 bytes |
+| Fixed array (in struct) | Contiguous elements, no padding | 0 bytes |
 | Variable struct | 8-byte header + inline + variable | 8 bytes + refs |
-| Vector (fixed T) | 8-byte count + padded elements | 8 bytes + element padding |
+| Vector (fixed T) | 8-byte count + contiguous elements + end padding | 8 bytes + 0-7 end |
 | Vector (variable T) | 8-byte count + offset table + data | 8 + (n+1)×8 bytes |
 | String | 8-byte length + data | 8 bytes |
 

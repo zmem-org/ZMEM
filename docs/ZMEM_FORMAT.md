@@ -3163,21 +3163,24 @@ For serializing a sequence of elements (`std::vector<T>`, `std::array<T, N>`, ra
 
 #### Arrays of Fixed Elements
 
-For fixed-size elements (primitives, fixed structs), elements are stored **contiguously**:
+For fixed-size elements (primitives, fixed structs), elements are stored **contiguously** with no per-element padding:
 
 ```
-┌─────────────────────────┬─────────────────────────┐
-│        Count            │        Elements         │
-│       8 bytes           │   count × element_size  │
-└─────────────────────────┴─────────────────────────┘
+┌─────────────────────────┬─────────────────────────┬─────────────────┐
+│        Count            │        Elements         │   End Padding   │
+│       8 bytes           │   count × sizeof(T)     │   0-7 bytes     │
+└─────────────────────────┴─────────────────────────┴─────────────────┘
 ```
 
 | Field | Size | Description |
 |-------|------|-------------|
 | Count | 8 | Number of elements (u64, little-endian) |
-| Elements | count × padded_size_8(sizeof(T)) | Raw element bytes, contiguous, each padded to 8 bytes |
+| Elements | count × sizeof(T) | Raw element bytes, contiguous, no per-element padding |
+| End Padding | 0-7 bytes | Zero padding to 8-byte message boundary |
 
-**Total message size**: `8 + count × padded_size_8(sizeof(T))`
+**Total message size**: `padded_size_8(8 + count × sizeof(T))`
+
+**Why contiguous?** Per-element padding would break zero-copy `std::span<const T>` views, which require elements at stride `sizeof(T)`. The 8-byte padding applies only to the total message size for stream framing.
 
 #### Arrays of Variable Elements
 
@@ -3202,8 +3205,8 @@ The offset table includes a sentinel entry (offsets[count]) containing the total
 
 | Element Type | Supported | Storage Mode |
 |--------------|-----------|--------------|
-| Primitives (`f32`, `i32`, etc.) | Yes | Contiguous (padded to 8 bytes) |
-| Fixed structs (no vectors) | Yes | Contiguous (padded to 8 bytes) |
+| Primitives (`f32`, `i32`, etc.) | Yes | Contiguous, stride = sizeof(T) |
+| Fixed structs (no vectors) | Yes | Contiguous, stride = sizeof(T) |
 | Variable structs (with vectors) | Yes | Offset table + self-contained elements |
 | Nested vectors (`[[T]]`) | Yes | Offset table + self-contained inner vectors |
 | Vectors of strings (`[string]`) | Yes | Offset table + length-prefixed strings |
@@ -4946,18 +4949,18 @@ Offset  Size  Field
 8       4     elements[0].x (f32)
 12      4     elements[0].y (f32)
 16      4     elements[0].z (f32)
-20      4     [padding to 8-byte boundary]
-24      4     elements[1].x (f32)
-28      4     elements[1].y (f32)
-32      4     elements[1].z (f32)
-36      4     [padding]
-40      4     elements[2].x (f32)
-44      4     elements[2].y (f32)
-48      4     elements[2].z (f32)
-52      4     [padding]
+20      4     elements[1].x (f32)
+24      4     elements[1].y (f32)
+28      4     elements[1].z (f32)
+32      4     elements[2].x (f32)
+36      4     elements[2].y (f32)
+40      4     elements[2].z (f32)
+44      4     [end padding to 8-byte boundary]
 ------
-Total: 56 bytes (8 count + 48 payload, each element padded to 16 bytes)
+Total: 48 bytes (8 count + 36 data + 4 end padding)
 ```
+
+Elements are contiguous (stride = 12 bytes = sizeof(Vec3)), enabling zero-copy access via `std::span<const Vec3>`.
 
 **C++ usage**:
 ```cpp
