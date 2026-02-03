@@ -45,6 +45,8 @@ The trade-off: **Overhead** from vtables and indirection, even for fixed data.
 
 ## Wire Format Comparison
 
+**Note**: Sizes below are for the specific example schemas and typical FlatBuffers encodings. Actual sizes vary with schema shape and framing.
+
 ### Fixed Data: Point { x: f32, y: f32 }
 
 #### ZMEM Wire Format (8 bytes)
@@ -116,7 +118,7 @@ Offset  Size  Content
 ------  ----  -------
 0       8     size = 40 (content size, padded to 8-byte boundary)
 8       8     id = 123
-16      8     weights.offset = 24 (relative to byte 8, 8-byte aligned)
+16      8     weights.offset = 24 (inline-base-relative, 8-byte aligned)
 24      8     weights.count = 3
 32      4     weights[0] = 1.0
 36      4     weights[1] = 2.0
@@ -538,7 +540,7 @@ Array → count header + elements
 ### Alignment
 
 **ZMEM**:
-- All struct sizes: Padded to multiples of 8 bytes
+- All wire sizes: Padded to 8 bytes (minimum; higher alignment honored when required)
 - Fields within structs: Natural alignment (1/2/4/8/16-byte based on type size)
 - Variable section data: Each field's data starts at 8-byte aligned offset
 

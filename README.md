@@ -11,7 +11,7 @@ ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization per
 - **Minimal overhead for fixed structs** - Direct `memcpy` serialization with no headers or pointers (only padding to 8-byte boundary)
 - **Zero-copy deserialization** - Access data in-place without parsing or allocation
 - **Native mutable state** - Fixed structs can serve as your application's data model directly
-- **8-byte size alignment** - All struct sizes are padded to multiples of 8 bytes for safe zero-copy access
+- **8-byte size alignment (minimum)** - All wire sizes are padded to 8 bytes; higher alignment is honored when required (e.g., `i128`)
 - **Deterministic output** - Identical data always produces identical bytes (content-addressable storage friendly)
 - **Memory-mapped file support** - O(1) random access to any field in large files
 - **Large data support** - 64-bit size headers support documents up to 2^64−1 bytes and arrays up to 2^64−1 elements
@@ -116,6 +116,8 @@ struct Player {
 
 For fixed structs, ZMEM has minimal overhead—just padding to 8-byte boundaries for safe zero-copy access. No headers, vtables, or pointers.
 
+*Note*: These sizes are illustrative for the specific schemas shown and typical encodings. Actual sizes vary with schema shape and framing.
+
 ## Type System
 
 ### Primitives
@@ -158,7 +160,7 @@ ZMEM categorizes types into two categories:
 
 ### Fixed Types (Minimal Overhead)
 
-Fixed types are trivially copyable and serialize with a direct `memcpy`. Struct sizes are padded to multiples of 8 bytes:
+Fixed types are trivially copyable and serialize with a direct `memcpy`. Wire sizes are padded to multiples of 8 bytes (and higher alignment is respected when required):
 
 ```cpp
 struct Particle {
@@ -175,7 +177,7 @@ struct Particle {
 
 ### Variable Types (Minimal Overhead)
 
-Structs containing vectors or variable-length strings use an 8-byte size header plus 16-byte references for each variable field:
+Structs containing vectors, variable-length strings, or maps use an 8-byte size header plus references for each variable field:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -183,7 +185,7 @@ Structs containing vectors or variable-length strings use an 8-byte size header 
 └──────────────────────────────────────────────────────────────┘
 ```
 
-All struct sizes (fixed and variable) are padded to multiples of 8 bytes, and variable section data is 8-byte aligned, enabling safe zero-copy access via `reinterpret_cast`.
+All wire sizes (fixed and variable) are padded to multiples of 8 bytes, and variable section data is 8-byte aligned, enabling safe zero-copy access via `reinterpret_cast`. Types with alignment > 8 insert additional padding after headers so the inline section starts at the required alignment.
 
 ## When to Use ZMEM
 

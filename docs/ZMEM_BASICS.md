@@ -16,7 +16,7 @@ ZMEM categorizes all types into two categories:
 
 ### Fixed Types
 
-Fixed types are **trivially copyable** - they can be serialized with a direct `memcpy`. Struct sizes are padded to multiples of 8 bytes for safe zero-copy access.
+Fixed types are **trivially copyable** - they can be serialized with a direct `memcpy`. Wire sizes are padded to multiples of 8 bytes (minimum); higher alignment is honored when required.
 
 ```cpp
 // Primitives - written directly to wire (within structs)
@@ -45,7 +45,7 @@ Triangle t{...};          // 40 bytes on wire (padded to multiple of 8)
 
 ### Variable Types
 
-Variable types contain **variable-length data** like vectors or strings. They need additional structure to track where the variable data lives.
+Variable types contain **variable-length data** like vectors, strings, or maps. They need additional structure to track where the variable data lives.
 
 ```cpp
 // Variable types - have variable-length members
@@ -93,9 +93,9 @@ Variable structs use a three-part layout:
 
 **Inline Section:** Fixed-size portion containing:
 - Fixed members written directly
-- 16-byte references for vectors/strings (offset + count/length)
+- 16-byte references for vectors/strings/maps (offset + count/length)
 
-**Variable Section:** Actual data for vectors and strings, with **8-byte alignment padding** before each field's data
+**Variable Section:** Actual data for vectors, strings, and maps, with **8-byte alignment padding** before each field's data
 
 **Alignment:** All variable section data is 8-byte aligned for safe zero-copy access. The total content size is also padded to a multiple of 8 bytes.
 
@@ -126,7 +126,7 @@ Total: 48 bytes (8 header + 40 content)
 ```
 
 The vector reference contains:
-- **offset**: Byte position of data relative to byte 8 (here: 24, which is 8-byte aligned)
+- **offset**: Byte position of data relative to the inline section start (byte 8 for typical types; byte 16 if the inline section is align-16)
 - **count**: Number of elements (here: 3)
 
 ### Strings

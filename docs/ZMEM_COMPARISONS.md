@@ -18,6 +18,8 @@ A brief comparison of ZMEM with other binary serialization formats.
 | Max document size | 2^64−1 bytes | ~2 GB (32-bit offsets) | 2^64−1 bytes (multi-segment) | ~2 GB (default) |
 | Max array elements | 2^64−1 | ~2^32 | ~2^29 per List | ~2^32 (varint) |
 
+**Note**: The size/overhead figures below are **illustrative for the specific schemas shown** and common library defaults. Actual sizes and performance vary with schema shape, options, and framing. Use the benchmarks for reproducible performance comparisons.
+
 ## Wire Size Comparison
 
 ### Fixed Struct: `Point { x: f32, y: f32 }`

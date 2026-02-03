@@ -914,7 +914,7 @@ field::type = default_value
 
 | Type | Reason |
 |------|--------|
-| Variable structs | Contain vectors, strings, maps, or optionals |
+| Variable structs | Contain variable-length fields (vectors, strings, maps) |
 | Unions | Ambiguous which variant |
 | Vectors | Variable size |
 | Maps | Variable size |
@@ -1038,7 +1038,7 @@ struct Entity {
 **Constraints**:
 - **Declaration order**: Fields must be listed in declaration order (like C++20 designated initializers)
 - **All fields required**: Every field must be specified (no partial initialization)
-- **Fixed structs only**: The struct being defaulted must be a fixed struct (no vectors, strings, maps, or optionals)
+- **Fixed structs only**: The struct being defaulted must be a fixed struct (no vectors, strings, or maps)
 - **Field names must match**: Each designator must name a valid field
 
 ```
@@ -1052,15 +1052,14 @@ position::Vec3 = {y = 0.0, x = 0.0, z = 0.0}   # Error: fields out of order
 position::Vec3 = {x = 0.0, y = 0.0}             # Error: missing z
 
 # Invalid: variable struct
-data::VariableStruct = {...}                     # Error: contains vector/string/map/optional
+data::VariableStruct = {...}                     # Error: contains vector/string/map
 ```
 
 **Why fixed structs only?**
 
-Variable structs contain variable-size or heap-allocated data (vectors, strings, maps) or require special handling (optionals). Defaults for these types would require:
+Variable structs contain variable-size or heap-allocated data (vectors, strings, maps). Defaults for these types would require:
 - Heap allocation at initialization time
 - Complex literal syntax for variable-length data
-- Ambiguous semantics for optionals (present with value vs absent)
 
 Fixed structs are contiguous, fixed-size, and can be initialized with a direct memory copy.
 
@@ -1138,7 +1137,7 @@ Type signature: `Config{timeout::u64}` (NOT `Config{timeout::u64=5000}`)
 5. **No defaults for variable types**: Variable structs, unions, vectors, maps cannot have defaults
 
    ```
-   data::VariableStruct = ???  # Error: variable struct (contains vector/string/map/optional)
+   data::VariableStruct = ???  # Error: variable struct (contains vector/string/map)
    result::Result = ???       # Error: union
    items::[Item] = ???        # Error: vector
    config::map<K,V> = ???     # Error: map
@@ -1309,10 +1308,10 @@ ZMEM uses 8-byte headers (size headers for variable structs, count headers for a
 
 ```
 Standard case (max_align ≤ 8):
-[8-byte header][content at byte 8]
+[8-byte header][inline section at byte 8]
 
 High-alignment case (max_align > 8, e.g., 16):
-[8-byte header][padding][content at byte max_align]
+[8-byte header][padding][inline section at byte max_align]
 ```
 
 The padding size is: `max_align - 8` (e.g., 8 bytes for 16-byte aligned types).
@@ -1323,6 +1322,8 @@ This applies to:
 - **Vector elements in variable section**: padding before first element if element alignment > 8
 
 The padding is deterministic—derived from the type's maximum alignment requirement at compile time. This ensures zero-copy access works for all types, including `i128`/`u128`.
+
+**Inline base (critical)**: The inline section starts at `inline_base = start_of_struct + 8 + align_padding`. For `max_align ≤ 8`, `inline_base` is byte 8. For `max_align > 8`, `inline_base` is byte `max_align`. **All offsets stored in string/vector/map references are relative to `inline_base`, not necessarily byte 8.**
 
 #### Floating Point
 
@@ -1743,10 +1744,10 @@ Offset  Size  Field
 0       8     size = 264 (inline payload size after this field)
 8       4     tag = 2 (Binary)
 12      4     [padding to align inline section]
-16      8     data.offset = 264 (relative to byte 8, points to variable section)
+16      8     data.offset = 256 (inline-base-relative → points to variable section)
 24      8     data.count = 4
 32      240   [padding to max inline size]
---- Variable section (offset 8 + 264 = 272 from start) ---
+--- Variable section (offset inline_base + 256 = 272 from start) ---
 272     4     data bytes: [1, 2, 3, 4]
 ------
 Total: 276 bytes (8 + 264 + 4)
@@ -1953,7 +1954,7 @@ Unlike `str[N]`, variable-length strings have no compile-time size limit and are
 
 ```cpp
 struct alignas(8) zmem_string_ref {
-    uint64_t offset;  // Byte offset to string data (relative to byte 8 of containing struct)
+    uint64_t offset;  // Byte offset to string data (inline-base-relative)
     uint64_t length;  // Byte length of string (NOT including any null terminator)
 };
 ```
@@ -1999,17 +2000,18 @@ Wire layout for `LogEntry { timestamp: 1000, level: 2, message: "Hello, World!",
 ```
 Offset  Size  Field
 ------  ----  -----
-0       8     size = 93 (payload after this field)
+0       8     size = 112 (payload after this field)
 8       8     timestamp = 1000
 16      1     level = 2
 17      7     [padding to align message]
-24      8     message.offset = 72 (relative to byte 8)
+24      8     message.offset = 96 (inline-base-relative → points to byte 104)
 32      8     message.length = 13
 40      64    source = "main.cpp\0..." (null-terminated, zero-padded)
---- Variable section (offset 8 + 72 = 80 from start) ---
+--- Variable section (offset inline_base + 96 = 104 from start) ---
 104     13    message data: "Hello, World!"
+117     3     [padding to 8-byte boundary]
 ------
-Total: 117 bytes
+Total: 120 bytes
 ```
 
 ### Optional Types
@@ -2027,6 +2029,8 @@ opt<T>    # Optional value of type T
 │ 1 byte  │ align-1     │   sizeof(T)     │
 └─────────┴─────────────┴─────────────────┘
 ```
+
+Optionals are fixed-size and do **not** make a struct variable.
 
 - `present`: 1 byte — `0x00` = absent, `0x01` = present (other values invalid)
 - `padding`: bytes to align value to `alignof(T)` (must be zero)
@@ -2219,8 +2223,8 @@ Structs may contain vector fields (`std::vector<T>` in C++, `Vec<T>` in Rust). T
 
 | Category | Description | Wire Format |
 |----------|-------------|-------------|
-| **Fixed Struct** | No vector fields (trivially copyable) | Direct memcpy, padded to 8-byte boundary (no header) |
-| **Variable Struct** | Has vector field(s) | 8-byte size header + inline section + variable section |
+| **Fixed Struct** | No variable-length fields (no vectors/strings/maps) | Direct memcpy, padded to 8-byte boundary (no header) |
+| **Variable Struct** | Has variable-length fields (vector/string/map) | 8-byte size header + inline section + variable section |
 
 #### Vector Field Wire Representation
 
@@ -2238,9 +2242,9 @@ struct alignas(8) zmem_vector_ref {
 
 The actual array data is stored in the **variable section** after the inline section.
 
-**Offset Reference Point**: The `offset` is always relative to **byte 8 of the containing struct** (the first byte after the 8-byte size field). This rule applies at all nesting levels:
-- Top-level struct: offset is relative to byte 8 of the root serialization
-- Nested element in `[VariableStruct]`: offset is relative to byte 8 of **that element**, not the parent
+**Offset Reference Point**: The `offset` is always relative to the **inline base** of the containing struct (start of the inline section after the size header and any alignment padding). This rule applies at all nesting levels:
+- Top-level struct: offset is relative to that struct’s `inline_base`
+- Nested element in `[VariableStruct]`: offset is relative to the nested element’s `inline_base`, not the parent
 
 This makes each variable struct self-contained and independently deserializable.
 
@@ -2250,7 +2254,7 @@ Each map field is stored in the inline section as a **map reference**:
 
 ```cpp
 struct alignas(8) zmem_map_ref {
-    uint64_t offset;  // Byte offset to map entries (byte-8-relative)
+    uint64_t offset;  // Byte offset to map entries (inline-base-relative)
     uint64_t count;   // Number of entries
 };
 ```
@@ -2272,7 +2276,7 @@ For **variable maps** (`map<K, [T]>` or `map<K, VariableStruct>`):
 ```
 Each entry contains offset/count (for vector values) or offset (for variable struct values) pointing to data within the same variable section.
 
-**Offset Reference Point**: Map entry offsets use the same byte-8-relative convention as vector fields. For nested variable struct values, each value is self-contained with offsets relative to its own byte 8.
+**Offset Reference Point**: Map entry offsets use the same inline-base-relative convention as vector fields. For nested variable struct values, each value is self-contained with offsets relative to its own inline base.
 
 **Example**: Struct with a map field
 
@@ -2288,7 +2292,7 @@ Offset  Size  Field
 ------  ----  -----
 0       8     [Size header]
 8       8     id
-16      8     settings.offset (byte-8-relative, e.g., 24 → points to byte 32)
+16      8     settings.offset (inline-base-relative, e.g., 24 → points to byte 32)
 24      8     settings.count (e.g., 2)
 --- Variable section (byte 32) ---
 32      16    Entry 0 key: "volume\0........."
@@ -2372,14 +2376,14 @@ Offset  Size  Field
 16      8     offsets[2] = 76  (total data size)
 --- Element 0 starts at offset 24 ---
 24      8     elem[0].size = 28
-32      8     elem[0].id = 1                     ← byte 8 of element 0
-40      8     elem[0].weights.offset = 24       ← relative to byte 8 of THIS element
+32      8     elem[0].id = 1                     ← inline base of element 0
+40      8     elem[0].weights.offset = 24       ← relative to THIS element's inline base
 48      8     elem[0].weights.count = 1
 56      4     elem[0].weights[0] = 0.5          ← offset 24 from byte 32 = offset 56
 --- Element 1 starts at offset 60 ---
 60      8     elem[1].size = 32
-68      8     elem[1].id = 2                     ← byte 8 of element 1
-76      8     elem[1].weights.offset = 24       ← relative to byte 8 of THIS element
+68      8     elem[1].id = 2                     ← inline base of element 1
+76      8     elem[1].weights.offset = 24       ← relative to THIS element's inline base
 84      8     elem[1].weights.count = 2
 92      4     elem[1].weights[0] = 0.1          ← offset 24 from byte 68 = offset 92
 96      4     elem[1].weights[1] = 0.2
@@ -2387,7 +2391,7 @@ Offset  Size  Field
 Total: 100 bytes
 ```
 
-**Offset Reference Point (Critical)**: Each variable element is **self-contained**. Vector offsets within an element are relative to **that element's own byte 8** (the start of its inline section), NOT the parent's byte 8. This enables:
+**Offset Reference Point (Critical)**: Each variable element is **self-contained**. Vector offsets within an element are relative to **that element's own inline base** (start of its inline section), NOT the parent's inline base. This enables:
 - Independent deserialization of each element
 - Copy/move of elements without offset fixup
 - Consistent offset calculation at any nesting depth
@@ -2511,14 +2515,16 @@ map<K, V>    # K = key type, V = value type
 
 **Value type**: Any ZMEM type (primitives, structs, fixed arrays, vectors, nested maps)
 
+**Note**: Maps are variable-length fields. Any struct containing a map is a **variable struct**, and the map payload lives in the parent’s variable section (pointed to by the map reference).
+
 #### Map Categories
 
-Like structs, maps are categorized by whether values contain vectors:
+Like structs, maps are categorized by whether the **value** is fixed or variable:
 
-| Category | Value Type | Entry Layout | Wire Format |
-|----------|------------|--------------|-------------|
-| **Fixed Map** | Trivially copyable (no vectors) | `{key, value}` | Count + entries |
-| **Variable Map** | Contains vectors | `{key, offset, count, ...}` | Size + count + entries + variable data |
+| Category | Value Type | Entry Layout | Payload Layout |
+|----------|------------|--------------|----------------|
+| **Fixed Map** | Trivially copyable (no vectors) | `{key, value}` | Entries only (count in map ref) |
+| **Variable Map** | Contains vectors or is a variable struct | `{key, offset, count/offset}` | Entries + variable data (count in map ref) |
 
 #### Fixed Maps
 
@@ -2545,13 +2551,14 @@ Entry alignment = `max(alignof(K), alignof(V))`
 | `map<str[32], i64>` | `[key:32][value:8]` | 40 | 8 |
 | `map<u8, u8>` | `[key:1][value:1]` | 2 | 1 |
 
-**Wire format**:
+**Map payload layout** (at `inline_base + map.offset`):
 ```
-┌─────────┬────────────────────────────────────────────┐
-│ Count   │ Entries...                                 │
-│ 8 bytes │ count × sizeof(Entry)                      │
-└─────────┴────────────────────────────────────────────┘
+┌────────────────────────────────────────────┐
+│ Entries...                                 │
+│ count × sizeof(Entry)                      │
+└────────────────────────────────────────────┘
 ```
+The element count is stored in the inline `map` reference (`count`), so no map-local header is needed.
 
 #### Variable Maps
 
@@ -2562,7 +2569,7 @@ For `map<K, V>` where V contains vectors (including `map<K, [T]>`):
 Entry = { key: K, [padding], offset: u64, count: u64 }
 ```
 
-The offset/count reference points to data in the variable section (byte-8-relative), just like embedded vectors in structs.
+The offset/count reference points to data in the variable section (inline-base-relative), just like embedded vectors in structs.
 
 **Entry layout** for variable struct values (`map<K, VariableStruct>`):
 ```
@@ -2582,20 +2589,20 @@ Variable section for map<K, VariableStruct>:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Wire format** (vector values):
+**Map payload layout** (vector values):
 ```
-┌──────────┬─────────┬─────────────────────────────┬───────────────────┐
-│ Size     │ Count   │ Entries (with refs)...      │ Variable section  │
-│ 8 bytes  │ 8 bytes │ fixed stride                │ vector data       │
-└──────────┴─────────┴─────────────────────────────┴───────────────────┘
+┌─────────────────────────────┬───────────────────┐
+│ Entries (with refs)...      │ Variable data     │
+│ fixed stride                │ vector data       │
+└─────────────────────────────┴───────────────────┘
 ```
 
-**Wire format** (variable struct values):
+**Map payload layout** (variable struct values):
 ```
-┌──────────┬─────────┬─────────────────────────────┬─────────────────────────────┐
-│ Size     │ Count   │ Entries (key + offset)...   │ Self-contained values...    │
-│ 8 bytes  │ 8 bytes │ fixed stride                │ each with size header       │
-└──────────┴─────────┴─────────────────────────────┴─────────────────────────────┘
+┌─────────────────────────────┬─────────────────────────────┐
+│ Entries (key + offset)...   │ Self-contained values...    │
+│ fixed stride                │ each with size header       │
+└─────────────────────────────┴─────────────────────────────┘
 ```
 
 **Example**: `map<str[32], [f32]>` with 2 entries:
@@ -2605,65 +2612,62 @@ Variable section for map<K, VariableStruct>:
 Entries are sorted by key: "alpha" < "beta" (lexicographic order).
 
 ```
+Assume inline_base = 8 and map.offset = 24 (map payload begins at byte 32).
+
 Offset  Size  Field
 ------  ----  -----
-0       8     Total size (after this field)
-8       8     Entry count = 2
 --- Entry 0 (key: "alpha") ---
-16      32    Entry 0 key: "alpha\0..." (zero-padded)
-48      8     Entry 0 value offset: 104 (byte-8-relative: points to byte 112)
-56      8     Entry 0 value count: 3
+32      32    Entry 0 key: "alpha\0..." (zero-padded)
+64      8     Entry 0 value offset: 120 (inline-base-relative → points to byte 128)
+72      8     Entry 0 value count: 3
 --- Entry 1 (key: "beta", sorted after "alpha") ---
-64      32    Entry 1 key: "beta\0..." (zero-padded)
-96      8     Entry 1 value offset: 116 (byte-8-relative: points to byte 124)
-104     8     Entry 1 value count: 2
---- Variable section (byte 112) ---
-112     4     1.0f  (entry 0, element 0)
-116     4     2.0f  (entry 0, element 1)
-120     4     3.0f  (entry 0, element 2)
-124     4     4.0f  (entry 1, element 0)
-128     4     5.0f  (entry 1, element 1)
-------
-Total: 132 bytes
+80      32    Entry 1 key: "beta\0..." (zero-padded)
+112     8     Entry 1 value offset: 136 (inline-base-relative → points to byte 144)
+120     8     Entry 1 value count: 2
+--- Variable data (byte 128) ---
+128     4     1.0f  (entry 0, element 0)
+132     4     2.0f  (entry 0, element 1)
+136     4     3.0f  (entry 0, element 2)
+140     4     [padding to 8-byte boundary]
+144     4     4.0f  (entry 1, element 0)
+148     4     5.0f  (entry 1, element 1)
 ```
 
-**Offset Convention**: Map offsets use the same byte-8-relative convention as struct fields. To resolve an offset: `absolute_position = 8 + offset`.
+**Offset Convention**: Map offsets use the same inline-base-relative convention as struct fields. To resolve an offset: `absolute_position = inline_base + offset`.
 
 **Example**: `map<u32, Entity>` where `Entity { id::u64, tags::[str[16]] }` with 2 entries:
 - 1 → Entity{id: 100, tags: ["player"]}
 - 2 → Entity{id: 200, tags: ["enemy", "boss"]}
 
 ```
+Assume inline_base = 8 and map.offset = 16 (map payload begins at byte 24).
+
 Offset  Size  Field
 ------  ----  -----
-0       8     Total size (after this field)
-8       8     Entry count = 2
 --- Entry 0 (key: 1) ---
-16      4     Entry 0 key: 1
-20      4     [padding to 8-byte alignment]
-24      8     Entry 0 value offset: 40 (byte-8-relative: points to byte 48)
+24      4     Entry 0 key: 1
+28      4     [padding to 8-byte alignment]
+32      8     Entry 0 value offset: 48 (inline-base-relative → points to byte 56)
 --- Entry 1 (key: 2) ---
-32      4     Entry 1 key: 2
-36      4     [padding]
-40      8     Entry 1 value offset: 80 (byte-8-relative: points to byte 88)
---- Variable section: self-contained values ---
-48      8     Value 0 size: 32 (content size)
-56      8     Value 0 inline: id = 100
-64      8     Value 0 inline: tags offset = 24 (relative to byte 56)
-72      8     Value 0 inline: tags count = 1
-80      16    Value 0 variable: "player\0........" (padded str[16])
+40      4     Entry 1 key: 2
+44      4     [padding]
+48      8     Entry 1 value offset: 96 (inline-base-relative → points to byte 104)
+--- Variable data: self-contained values (byte 56) ---
+56      8     Value 0 size: 40 (content size)
+64      8     Value 0 inline: id = 100
+72      8     Value 0 inline: tags offset = 24 (relative to Value 0 inline_base = 64 → points to byte 88)
+80      8     Value 0 inline: tags count = 1
+88      16    Value 0 variable: "player\0........" (padded str[16])
 --- Value 1 (self-contained) ---
-88      8     Value 1 size: 48 (content size)
-96      8     Value 1 inline: id = 200
-104     8     Value 1 inline: tags offset = 24 (relative to byte 96)
-112     8     Value 1 inline: tags count = 2
-120     16    Value 1 variable: "enemy\0........." (str[16])
-136     16    Value 1 variable: "boss\0.........." (str[16])
-------
-Total: 152 bytes
+104     8     Value 1 size: 56 (content size)
+112     8     Value 1 inline: id = 200
+120     8     Value 1 inline: tags offset = 24 (relative to Value 1 inline_base = 112 → points to byte 136)
+128     8     Value 1 inline: tags count = 2
+136     16    Value 1 variable: "enemy\0........." (str[16])
+152     16    Value 1 variable: "boss\0.........." (str[16])
 ```
 
-Note: Each variable struct value is self-contained. The `tags offset` in Value 1 is relative to **that value's byte 8** (byte 96), not the map's byte 8.
+Note: Each variable struct value is self-contained. The `tags offset` in Value 1 is relative to **that value's inline_base**, not the map's inline_base.
 
 #### Entry Ordering (Mandatory)
 
@@ -2861,7 +2865,7 @@ ZMEM uses **natural alignment** for fields within structs and **8-byte alignment
    - At end of struct to ensure wire size is a **multiple of 8 bytes**
    - **All padding bytes MUST be zero** (see Deterministic Serialization below)
 
-4. **Fixed struct sizes**: All fixed struct wire sizes are padded to **multiples of 8 bytes**. This ensures safe zero-copy access in arrays/vectors of structs.
+4. **Fixed struct sizes**: All fixed struct wire sizes are padded to **multiples of 8 bytes** (minimum). If a type requires alignment > 8 (e.g., `i128`), the buffer itself must be aligned accordingly; wire size padding still uses 8-byte multiples.
 
 5. **Array alignment**: Same as element alignment (no additional padding between elements)
 
@@ -3158,7 +3162,7 @@ The inline section has a fixed size determined by the struct definition:
 - Nested fixed structs: stored inline (directly embedded)
 - Nested variable structs: stored as `{offset::u64}` (8 bytes), pointing to a **self-contained** value in the variable section
 
-**Nested variable struct rule**: When a struct field is itself a variable struct, it is NOT flattened into the parent. Instead, it is stored as a reference (offset only) in the inline section, pointing to a self-contained variable struct in the parent's variable section. The nested struct has its own size header and its own offset reference point (its own byte 8). This ensures consistent semantics regardless of nesting depth.
+**Nested variable struct rule**: When a struct field is itself a variable struct, it is NOT flattened into the parent. Instead, it is stored as a reference (offset only) in the inline section, pointing to a self-contained variable struct in the parent's variable section. The nested struct has its own size header and its own offset reference point (its own inline base). This ensures consistent semantics regardless of nesting depth.
 
 **Example**: Nested variable struct
 
@@ -3180,18 +3184,18 @@ Offset  Size  Field
 0       8     [Outer size header]
 --- Outer inline section ---
 8       8     flags
-16      8     nested.offset = 16 (byte-8-relative → points to byte 24)
+16      8     nested.offset = 16 (inline-base-relative → points to byte 24)
 --- Outer variable section (byte 24) ---
 24      8     [Inner size header]
---- Inner inline section (Inner's byte 8 = byte 32) ---
+--- Inner inline section (Inner's inline_base = byte 32) ---
 32      8     Inner.id
-40      8     Inner.values.offset = 24 (relative to Inner's byte 8 → points to byte 56)
+40      8     Inner.values.offset = 24 (relative to Inner's inline_base → points to byte 56)
 48      8     Inner.values.count
 --- Inner variable section (byte 56) ---
 56      ...   Inner.values data
 ```
 
-Note: `Inner.values.offset` is relative to Inner's byte 8 (byte 32), NOT Outer's byte 8.
+Note: `Inner.values.offset` is relative to Inner's inline_base (byte 32), NOT Outer's inline_base.
 
 #### Variable Section Layout
 
@@ -3204,7 +3208,7 @@ The variable section contains array data for all vector fields, with **8-byte al
 └─────────┴────────────────┴─────────┴────────────────┴─────────┘
 ```
 
-Each field's data starts at an 8-byte aligned offset (relative to the inline section start). This ensures safe zero-copy access via `reinterpret_cast` on all platforms.
+Each field's data starts at an 8-byte aligned offset (or higher if required by the element alignment) relative to the inline section start. This ensures safe zero-copy access via `reinterpret_cast` on all platforms.
 
 **For vectors of fixed types** (trivially copyable):
 ```
@@ -3220,10 +3224,10 @@ String data starts at 8-byte aligned offset. The string itself is not null-termi
 
 **For vectors of variable types** (structs with vectors):
 ```
-┌─────────┬─────────────────────────────────────────┬────────────────────────────────────┐
-│ padding │  Offset Table (count × 8 bytes)         │  Serialized Elements               │
-│ (0-7 B) │  [off₀][off₁]...[offₙ₋₁]                │  [elem₀][elem₁]...[elemₙ₋₁]        │
-└─────────┴─────────────────────────────────────────┴────────────────────────────────────┘
+┌─────────┬────────────────────────────────────────────┬────────────────────────────────────┐
+│ padding │  Offset Table ((count+1) × 8 bytes)        │  Serialized Elements               │
+│ (0-7 B) │  [off₀][off₁]...[offₙ] (sentinel at end)   │  [elem₀][elem₁]...[elemₙ₋₁]        │
+└─────────┴────────────────────────────────────────────┴────────────────────────────────────┘
 ```
 Each offset points to that element's inline section start. Elements include their own inline + variable sections, each padded to 8-byte boundaries.
 
@@ -3231,12 +3235,12 @@ Each offset points to that element's inline section start. Elements include thei
 
 #### Offset Semantics
 
-All offsets are **relative to byte 8** (start of inline section, after the size field).
+All offsets are **relative to the inline base** (start of the inline section after the size field and any alignment padding). For `max_align ≤ 8`, the inline base is byte 8.
 
 This means:
-- `offset = 0` points to the first byte of the inline section
+- `offset = 0` points to the first byte of the inline section (`inline_base`)
 - `offset = inline_size` points to the first byte of the variable section
-- For nested variable elements (in `[VariableStruct]`), each element is self-contained with offsets relative to **that element's own byte 8**, not the parent's byte 8
+- For nested variable elements (in `[VariableStruct]`), each element is self-contained with offsets relative to **that element's own inline base**, not the parent's
 
 #### Complete Example
 
@@ -3266,34 +3270,35 @@ Scene with:
 Wire    Data
 Offset  Offset  Size  Content
 ------  ------  ----  -------
-0       -       8     Total Size = 128 (bytes after this field)
+0       -       8     Total Size = 136 (bytes after this field)
 8       0       8     entities.offset = 24 (points to offset_table)
 16      8       8     entities.count = 2
 24      16      4     scale = 1.0f
 28      20      4     [padding to 8-byte boundary]
         ─────── Inline section: 24 bytes ───────
         ─────── Variable section (8-byte aligned) ───────
-32      24      8     offset_table[0] = 40 → Entity 0 (relative to Scene's byte 8)
-40      32      8     offset_table[1] = 80 → Entity 1
-        ─────── Entity 0 (size header + content) ───────
-48      40      8     Entity 0: size = 32 (inline + variable)
-56      -       8     Entity 0: id = 1
-64      -       8     Entity 0: weights.offset = 24 (relative to Entity 0's byte 8 = position 56)
-72      -       8     Entity 0: weights.count = 2
-80      -       8     Entity 0: weights data [1.0f, 2.0f] (8-byte aligned, at offset 24 from 56 = 80)
+32      24      8     offset_table[0] = 0
+40      32      8     offset_table[1] = 40
+48      40      8     offset_table[2] = 88  (sentinel / total data size)
+        ─────── Data section starts at offset 56 ───────
+56      48      8     Entity 0: size = 32 (inline + variable)
+64      -       8     Entity 0: id = 1
+72      -       8     Entity 0: weights.offset = 24 (relative to Entity 0's inline_base = position 64)
+80      -       8     Entity 0: weights.count = 2
+88      -       8     Entity 0: weights data [1.0f, 2.0f] (8-byte aligned, at offset 24 from 64 = 88)
         ─────── Entity 1 (size header + content) ───────
-88      80      8     Entity 1: size = 40 (inline + variable + 4 bytes padding)
-96      -       8     Entity 1: id = 2
-104     -       8     Entity 1: weights.offset = 24
-112     -       8     Entity 1: weights.count = 3
-120     -       12    Entity 1: weights data [3.0f, 4.0f, 5.0f]
-132     -       4     Entity 1: [end padding to 8-byte boundary]
+96      88      8     Entity 1: size = 40 (inline + variable + 4 bytes padding)
+104     -       8     Entity 1: id = 2
+112     -       8     Entity 1: weights.offset = 24
+120     -       8     Entity 1: weights.count = 3
+128     -       12    Entity 1: weights data [3.0f, 4.0f, 5.0f]
+140     -       4     Entity 1: [end padding to 8-byte boundary]
 ────────────────────────────────────────────────
-Total: 136 bytes (8 size header + 128 content)
+Total: 144 bytes (8 size header + 136 content)
 ```
 
 **Key alignment points:**
-- Variable section data starts at 8-byte aligned offsets (positions 32, 80, 120)
+- Variable section data starts at 8-byte aligned offsets (positions 56, 88, 128)
 - Entity 1 has 4 bytes of end padding because its content (24 inline + 12 data = 36) is not a multiple of 8
 - All vector data pointers are 8-byte aligned for safe zero-copy access
 
@@ -4329,15 +4334,33 @@ ServerConfig received = deserialize<ServerConfig>(buffer);
 ZMEM defines an explicit `zmem_optional<T>` with guaranteed cross-platform layout:
 
 ```cpp
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <optional>
 
+template<typename T, size_t Align = alignof(T)>
+struct zmem_optional_storage;
+
+// alignof(T) == 1: no padding needed
 template<typename T>
-struct zmem_optional {
-    uint8_t present;                    // 0 = absent, 1 = present
-    alignas(alignof(T)) uint8_t _pad[alignof(T) - 1];  // explicit padding (must be zero)
-    T value;                            // must be zero when absent
+struct zmem_optional_storage<T, 1> {
+    uint8_t present;  // 0 = absent, 1 = present
+    T value;          // must be zero when absent
+};
+
+// alignof(T) > 1: explicit padding to keep value aligned
+template<typename T, size_t Align>
+struct zmem_optional_storage {
+    uint8_t present;                 // 0 = absent, 1 = present
+    uint8_t _pad[Align - 1];         // explicit padding (must be zero)
+    T value;                         // must be zero when absent
+};
+
+template<typename T>
+struct zmem_optional : zmem_optional_storage<T> {
+    using zmem_optional_storage<T>::present;
+    using zmem_optional_storage<T>::value;
 
     // Accessors
     bool has_value() const noexcept { return present != 0; }
@@ -4356,7 +4379,9 @@ struct zmem_optional {
     zmem_optional& operator=(const std::optional<T>& opt) {
         if (opt.has_value()) {
             present = 1;
-            std::memset(_pad, 0, sizeof(_pad));  // zero padding
+            if constexpr (alignof(T) > 1) {
+                std::memset(this->_pad, 0, sizeof(this->_pad));  // zero padding
+            }
             value = *opt;
         } else {
             // Zero entire struct when absent (deterministic serialization)
@@ -4432,7 +4457,7 @@ Variable-length strings use a reference type for the inline section:
 // Inline representation of a variable-length string
 // alignas(8) ensures consistent layout on both 32-bit and 64-bit platforms
 struct alignas(8) zmem_string_ref {
-    uint64_t offset;    // byte offset to string data (relative to byte 8 of containing struct)
+    uint64_t offset;    // byte offset to string data (inline-base-relative)
     uint64_t length;    // byte length (NOT null-terminated)
 };
 
@@ -4921,7 +4946,7 @@ std::vector<uint8_t> serialize_entity(const Entity& entity) {
     std::memcpy(ptr, &entity.id, 8);
     ptr += 8;
 
-    // Write vector ref (offset relative to byte 8)
+    // Write vector ref (offset relative to inline_base)
     uint64_t weights_offset = ENTITY_INLINE_SIZE;
     uint64_t weights_count = entity.weights.size();
     std::memcpy(ptr, &weights_offset, 8);
@@ -5133,4 +5158,3 @@ for (const auto& v : view) {
     // Access directly from buffer
 }
 ```
-
