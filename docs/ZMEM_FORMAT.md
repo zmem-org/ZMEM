@@ -1303,14 +1303,26 @@ static_assert(alignof(int128_t) == 16);
 
 Without `alignas(16)`, a struct of two `uint64_t` would only have 8-byte alignment, causing layout mismatches.
 
-**Restriction: No variable-section elements with alignment > 8.** Types requiring greater than 8-byte alignment cannot be used as:
-- Vector elements (`[T]`)
-- Map keys or values (`map<K, V>`)
-- Fields in variable structs that would be placed in the variable section
+**Alignment padding for types with alignment > 8:**
 
-This includes `i128`, `u128`, any struct containing these types, and any explicitly `alignas(16)` (or higher) types. ZMEM's variable section uses 8-byte alignment, which would cause misalignment on platforms enforcing stricter alignment.
+ZMEM uses 8-byte headers (size headers for variable structs, count headers for arrays). When content requires alignment greater than 8, **alignment padding** is inserted after the header:
 
-**Workaround**: Use fixed arrays (`i128[N]`) within fixed structs, where natural alignment applies.
+```
+Standard case (max_align ≤ 8):
+[8-byte header][content at byte 8]
+
+High-alignment case (max_align > 8, e.g., 16):
+[8-byte header][padding][content at byte max_align]
+```
+
+The padding size is: `max_align - 8` (e.g., 8 bytes for 16-byte aligned types).
+
+This applies to:
+- **Variable struct inline sections**: padding after size header if any field has alignment > 8
+- **Array message payloads**: padding after count header if element type has alignment > 8
+- **Vector elements in variable section**: padding before first element if element alignment > 8
+
+The padding is deterministic—derived from the type's maximum alignment requirement at compile time. This ensures zero-copy access works for all types, including `i128`/`u128`.
 
 #### Floating Point
 
@@ -2303,7 +2315,7 @@ Vector elements are classified into three categories:
 
 For `[T]` where T is fixed (trivially copyable), elements are stored **contiguously**.
 
-**Restriction**: Types with alignment > 8 cannot be used as vector elements. This includes `i128`, `u128`, structs containing these types, and any `alignas(16+)` types. The variable section uses 8-byte alignment. Use fixed arrays within fixed structs instead.
+**Alignment padding**: If `alignof(T) > 8`, the vector data starts at an aligned offset. Padding is inserted before the first element to reach the required alignment boundary.
 
 ```
 Variable section:
@@ -2857,21 +2869,22 @@ ZMEM uses **natural alignment** for fields within structs and **8-byte alignment
 
 #### Variable Section Alignment (Critical for Zero-Copy Safety)
 
-7. **Variable section data is 8-byte aligned**: All data in the variable section (vector elements, string data) starts at an 8-byte aligned offset relative to the inline section start. This ensures:
-   - Safe `reinterpret_cast` to element pointers for zero-copy access
-   - Proper alignment for all primitive types up to 64-bit
-   - Portability across architectures (x86, ARM, etc.)
+7. **Variable section data alignment**: Data in the variable section starts at an aligned offset:
+   - Standard types (alignment ≤ 8): 8-byte aligned offset
+   - High-alignment types (alignment > 8): aligned to element's alignment requirement
+
+   This ensures safe `reinterpret_cast` to element pointers for zero-copy access on all platforms.
 
 8. **Variable structs are padded to 8-byte boundaries**: The total serialized size of a variable struct (inline section + variable section) is always a multiple of 8 bytes. This ensures:
    - Nested variable structs maintain alignment for subsequent fields
    - Arrays of variable structs (`[VariableType]`) remain properly aligned
 
-9. **No variable-section types with alignment > 8**: Types requiring greater than 8-byte alignment (e.g., `i128`, `u128`, structs containing them, `alignas(16+)` types) cannot be used in variable sections. This means they cannot be:
-   - Vector elements (`[T]` where `alignof(T) > 8`)
-   - Map keys or values
-   - Elements of any variable-length container
+9. **Alignment padding after headers for align > 8 types**: When content requires alignment greater than 8 bytes, padding is inserted after the 8-byte header to reach the required alignment:
+   - Variable struct with align-16 field: `[size:8][pad:8][inline at byte 16]`
+   - Array of align-16 elements: `[count:8][pad:8][elements at byte 16]`
+   - Vector of align-16 elements: data starts at 16-byte aligned offset
 
-   **Workaround**: Use fixed arrays (`T[N]`) within fixed structs, where natural alignment applies.
+   Padding size = `max_align - 8` where `max_align` is the maximum alignment of the content. This is deterministic (known at compile time from the type definition).
 
 **Why 8-byte alignment?** Without alignment padding, vector data could start at arbitrary offsets. For example, a `vector<int32_t>` following a 5-byte string would have its elements at a non-4-byte-aligned address. Accessing such data via `reinterpret_cast` is undefined behavior in C++. While x86 tolerates misaligned access with a small performance penalty, other architectures (ARM, etc.) may crash or corrupt data. The 8-byte alignment rule ensures all types up to 64-bit can be safely accessed via zero-copy spans.
 
@@ -3085,19 +3098,29 @@ For deserialization: `memcpy(&struct, buf, sizeof(T))` or direct pointer cast (s
 For serializing a struct with vector field(s):
 
 ```
+Standard (max field alignment ≤ 8):
 ┌─────────────────────────┬─────────────────────────┬─────────────────────────┐
 │      Total Size         │    Inline Section       │   Variable Section      │
 │       8 bytes           │     (fixed size)        │   (variable size)       │
 └─────────────────────────┴─────────────────────────┴─────────────────────────┘
+
+High-alignment (max field alignment > 8, e.g., contains i128):
+┌─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┐
+│      Total Size         │    Align Padding        │    Inline Section       │   Variable Section      │
+│       8 bytes           │   (max_align - 8)       │     (fixed size)        │   (variable size)       │
+└─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┘
 ```
 
 | Field | Size | Description |
 |-------|------|-------------|
-| Total Size | 8 | Total bytes after this field (inline + variable) |
+| Total Size | 8 | Total bytes after this field (padding + inline + variable) |
+| Align Padding | 0 or (max_align - 8) | Zero padding to align inline section (only if max_align > 8) |
 | Inline Section | fixed | Scalar fields + vector refs (offset, count) |
 | Variable Section | varies | Array data for all vector fields |
 
-**Total message size**: `8 + inline_size + variable_size`
+**Total message size**: `8 + align_padding + inline_size + variable_size`
+
+**Alignment padding**: If any field in the struct has alignment > 8, padding is inserted after the size header so the inline section starts at a properly aligned offset. For 16-byte aligned types (i128, u128), this adds 8 bytes of padding.
 
 The size field enables:
 - Stream framing (know how many bytes to read)
@@ -3285,21 +3308,29 @@ For serializing a sequence of elements (`std::vector<T>`, `std::array<T, N>`, ra
 For fixed-size elements (primitives, fixed structs), elements are stored **contiguously** with no per-element padding:
 
 ```
+Standard (alignof(T) ≤ 8):
 ┌─────────────────────────┬─────────────────────────┬─────────────────┐
 │        Count            │        Elements         │   End Padding   │
 │       8 bytes           │   count × sizeof(T)     │   0-7 bytes     │
 └─────────────────────────┴─────────────────────────┴─────────────────┘
+
+High-alignment (alignof(T) > 8, e.g., i128):
+┌─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────┐
+│        Count            │    Align Padding        │        Elements         │   End Padding   │
+│       8 bytes           │   (alignof(T) - 8)      │   count × sizeof(T)     │   0-7 bytes     │
+└─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────┘
 ```
 
 | Field | Size | Description |
 |-------|------|-------------|
 | Count | 8 | Number of elements (u64, little-endian) |
+| Align Padding | 0 or (alignof(T) - 8) | Zero padding to align elements (only if alignof(T) > 8) |
 | Elements | count × sizeof(T) | Raw element bytes, contiguous, no per-element padding |
 | End Padding | 0-7 bytes | Zero padding to 8-byte message boundary |
 
-**Total message size**: `padded_size_8(8 + count × sizeof(T))`
+**Total message size**: `padded_size_8(8 + align_padding + count × sizeof(T))`
 
-**Why contiguous?** Per-element padding would break zero-copy `std::span<const T>` views, which require elements at stride `sizeof(T)`. The 8-byte padding applies only to the total message size for stream framing.
+**Why contiguous?** Per-element padding would break zero-copy `std::span<const T>` views, which require elements at stride `sizeof(T)`. Alignment padding is only added *before* the first element when needed, preserving contiguity.
 
 #### Arrays of Variable Elements
 
