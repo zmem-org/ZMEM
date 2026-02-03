@@ -3111,8 +3111,45 @@ The inline section has a fixed size determined by the struct definition:
 - Scalar fields: stored at their natural size/alignment
 - Fixed arrays: stored inline (element_size × N)
 - Vector fields: stored as `{offset::u64, count::u64}` (16 bytes, 8-byte aligned)
-- Nested fixed structs: stored inline
-- Nested variable structs: stored inline (their vector refs point into the parent's variable section)
+- String fields: stored as `{offset::u64, length::u64}` (16 bytes, 8-byte aligned)
+- Map fields: stored as `{offset::u64, count::u64}` (16 bytes, 8-byte aligned)
+- Nested fixed structs: stored inline (directly embedded)
+- Nested variable structs: stored as `{offset::u64}` (8 bytes), pointing to a **self-contained** value in the variable section
+
+**Nested variable struct rule**: When a struct field is itself a variable struct, it is NOT flattened into the parent. Instead, it is stored as a reference (offset only) in the inline section, pointing to a self-contained variable struct in the parent's variable section. The nested struct has its own size header and its own offset reference point (its own byte 8). This ensures consistent semantics regardless of nesting depth.
+
+**Example**: Nested variable struct
+
+```cpp
+struct Inner {
+    uint64_t id;
+    std::vector<int32_t> values;  // makes Inner variable
+};
+
+struct Outer {
+    uint64_t flags;
+    Inner nested;  // nested variable struct field
+};
+```
+
+```
+Offset  Size  Field
+------  ----  -----
+0       8     [Outer size header]
+--- Outer inline section ---
+8       8     flags
+16      8     nested.offset = 16 (byte-8-relative → points to byte 24)
+--- Outer variable section (byte 24) ---
+24      8     [Inner size header]
+--- Inner inline section (Inner's byte 8 = byte 32) ---
+32      8     Inner.id
+40      8     Inner.values.offset = 24 (relative to Inner's byte 8 → points to byte 56)
+48      8     Inner.values.count
+--- Inner variable section (byte 56) ---
+56      ...   Inner.values data
+```
+
+Note: `Inner.values.offset` is relative to Inner's byte 8 (byte 32), NOT Outer's byte 8.
 
 #### Variable Section Layout
 
