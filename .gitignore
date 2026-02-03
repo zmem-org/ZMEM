@@ -8,4 +8,5 @@ benchmarks/benchmark_generated.h
 
 # Benchmark output
 results.md
+results_zero_copy.md
 .DS_Store

@@ -71,8 +71,8 @@
   </g>
   <text x="204.79" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 204.79, 480.00)">ZMEM Write</text>
   <g>
-    <rect x="289.58" y="322.85" width="94.58" height="137.15" fill="url(#grad1)" rx="5" ry="5" />
-    <text x="336.88" y="312.85" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1787</text>
+    <rect x="289.58" y="323.26" width="94.58" height="136.74" fill="url(#grad1)" rx="5" ry="5" />
+    <text x="336.88" y="313.26" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1782</text>
   </g>
   <text x="336.88" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 336.88, 480.00)">Cap'n Proto Write</text>
   <g>
@@ -86,13 +86,13 @@
   </g>
   <text x="601.04" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 601.04, 480.00)">ZMEM Read</text>
   <g>
-    <rect x="685.83" y="407.81" width="94.58" height="52.19" fill="url(#grad4)" rx="5" ry="5" />
-    <text x="733.12" y="397.81" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">680</text>
+    <rect x="685.83" y="412.33" width="94.58" height="47.67" fill="url(#grad4)" rx="5" ry="5" />
+    <text x="733.12" y="402.33" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">621</text>
   </g>
   <text x="733.12" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 733.12, 480.00)">Cap'n Proto Read</text>
   <g>
-    <rect x="817.92" y="393.93" width="94.58" height="66.07" fill="url(#grad5)" rx="5" ry="5" />
-    <text x="865.21" y="383.93" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">861</text>
+    <rect x="817.92" y="397.54" width="94.58" height="62.46" fill="url(#grad5)" rx="5" ry="5" />
+    <text x="865.21" y="387.54" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">814</text>
   </g>
   <text x="865.21" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 865.21, 480.00)">FlatBuffers Read</text>
 </svg>

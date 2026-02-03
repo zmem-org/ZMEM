@@ -14,7 +14,6 @@
 // FlatBuffers
 #include "benchmark_generated.h"
 
-#include <array>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -70,6 +69,64 @@ struct TestObj {
 };
 
 } // namespace zmem_data
+
+// ============================================================================
+// ZMEM Zero-Copy Access Helpers
+// ============================================================================
+
+// Zero-copy read using lazy_zmem API
+// Accesses actual data values to ensure fair comparison with other formats
+size_t read_zmem_zero_copy_lazy(const std::string& buffer) {
+   glz::lazy_zmem_view<zmem_data::TestObj> view{buffer};
+   size_t checksum = 0;
+
+   // Field 0: FixedObject - sum array values
+   auto fixed_obj = view.get<0>();
+   auto int_array = fixed_obj.get<0>();
+   auto float_array = fixed_obj.get<1>();
+   auto double_array = fixed_obj.get<2>();
+   for (auto v : int_array) checksum += static_cast<size_t>(v);
+   for (auto v : float_array) checksum += static_cast<size_t>(v);
+   for (auto v : double_array) checksum += static_cast<size_t>(v);
+
+   // Field 1: FixedNameObject - sum string lengths
+   auto name_obj = view.get<1>();
+   checksum += name_obj.get<0>().size();
+   checksum += name_obj.get<1>().size();
+   checksum += name_obj.get<2>().size();
+   checksum += name_obj.get<3>().size();
+   checksum += name_obj.get<4>().size();
+
+   // Field 2: AnotherObject - sum string lengths and bool
+   auto another_obj = view.get<2>();
+   checksum += another_obj.get<0>().size();
+   checksum += another_obj.get<1>().size();
+   checksum += another_obj.get<2>().size();
+   checksum += another_obj.get<3>() ? 1 : 0;
+
+   // Nested: NestedObject - sum Vec3 values and string length
+   auto nested = another_obj.get<4>();
+   auto v3s = nested.get<0>();
+   for (const auto& v : v3s) {
+      checksum += static_cast<size_t>(v.x + v.y + v.z);
+   }
+   checksum += nested.get<1>().size();
+
+   // Field 3: string_array (variable vector - just count)
+   auto str_arr = view.get<3>();
+   checksum += str_arr.second; // count
+
+   // Field 4: string length
+   checksum += view.get<4>().size();
+
+   // Fields 5-7: number, boolean, another_bool
+   checksum += static_cast<size_t>(view.get<5>());
+   checksum += view.get<6>() ? 1 : 0;
+   checksum += view.get<7>() ? 1 : 0;
+
+   return checksum;
+}
+
 
 // ============================================================================
 // Test Data Initialization
@@ -171,6 +228,52 @@ void populate_capnp(::capnp::MessageBuilder& message, const zmem_data::TestObj& 
    root.setNumber(obj.number);
    root.setBoolean(obj.boolean);
    root.setAnotherBool(obj.another_bool);
+}
+
+// Zero-copy read: access all fields through Cap'n Proto accessors without copying
+size_t read_capnp_zero_copy(::capnp::MessageReader& message) {
+   auto root = message.getRoot<::TestObject>();
+   size_t checksum = 0;
+
+   // Fixed object - sum array values
+   auto fixed = root.getFixedObject();
+   for (auto val : fixed.getIntArray()) checksum += static_cast<size_t>(val);
+   for (auto val : fixed.getFloatArray()) checksum += static_cast<size_t>(val);
+   for (auto val : fixed.getDoubleArray()) checksum += static_cast<size_t>(val);
+
+   // Fixed name object - sum string lengths
+   auto fixedName = root.getFixedNameObject();
+   checksum += fixedName.getName0().size();
+   checksum += fixedName.getName1().size();
+   checksum += fixedName.getName2().size();
+   checksum += fixedName.getName3().size();
+   checksum += fixedName.getName4().size();
+
+   // Another object
+   auto another = root.getAnotherObject();
+   checksum += another.getString().size();
+   checksum += another.getAnotherString().size();
+   checksum += another.getEscapedText().size();
+   checksum += another.getBoolean() ? 1 : 0;
+
+   auto nested = another.getNestedObject();
+   for (auto v3 : nested.getV3s()) {
+      checksum += static_cast<size_t>(v3.getX() + v3.getY() + v3.getZ());
+   }
+   checksum += nested.getId().size();
+
+   // String array - sum lengths
+   for (auto s : root.getStringArray()) {
+      checksum += s.size();
+   }
+
+   // Simple fields
+   checksum += root.getString().size();
+   checksum += static_cast<size_t>(root.getNumber());
+   checksum += root.getBoolean() ? 1 : 0;
+   checksum += root.getAnotherBool() ? 1 : 0;
+
+   return checksum;
 }
 
 zmem_data::TestObj read_capnp(::capnp::MessageReader& message) {
@@ -285,6 +388,65 @@ flatbuffers::Offset<benchmark::TestObject> build_flatbuffer(
       obj.another_bool);
 }
 
+// Zero-copy read: access all fields through FlatBuffers accessors without copying
+size_t read_flatbuffer_zero_copy(const benchmark::TestObject* fb) {
+   size_t checksum = 0;
+
+   // Fixed object - sum array values
+   if (auto fixed = fb->fixed_object()) {
+      if (auto arr = fixed->int_array()) {
+         for (auto v : *arr) checksum += static_cast<size_t>(v);
+      }
+      if (auto arr = fixed->float_array()) {
+         for (auto v : *arr) checksum += static_cast<size_t>(v);
+      }
+      if (auto arr = fixed->double_array()) {
+         for (auto v : *arr) checksum += static_cast<size_t>(v);
+      }
+   }
+
+   // Fixed name object - sum string lengths
+   if (auto fn = fb->fixed_name_object()) {
+      if (fn->name0()) checksum += fn->name0()->size();
+      if (fn->name1()) checksum += fn->name1()->size();
+      if (fn->name2()) checksum += fn->name2()->size();
+      if (fn->name3()) checksum += fn->name3()->size();
+      if (fn->name4()) checksum += fn->name4()->size();
+   }
+
+   // Another object
+   if (auto ao = fb->another_object()) {
+      if (ao->string()) checksum += ao->string()->size();
+      if (ao->another_string()) checksum += ao->another_string()->size();
+      if (ao->escaped_text()) checksum += ao->escaped_text()->size();
+      checksum += ao->boolean() ? 1 : 0;
+
+      if (auto nested = ao->nested_object()) {
+         if (nested->id()) checksum += nested->id()->size();
+         if (auto v3s = nested->v3s()) {
+            for (const auto* v : *v3s) {
+               checksum += static_cast<size_t>(v->x() + v->y() + v->z());
+            }
+         }
+      }
+   }
+
+   // String array - sum lengths
+   if (auto arr = fb->string_array()) {
+      for (const auto* s : *arr) {
+         checksum += s->size();
+      }
+   }
+
+   // Simple fields
+   if (fb->string()) checksum += fb->string()->size();
+   checksum += static_cast<size_t>(fb->number());
+   checksum += fb->boolean() ? 1 : 0;
+   checksum += fb->another_bool() ? 1 : 0;
+
+   return checksum;
+}
+
 zmem_data::TestObj read_flatbuffer(const benchmark::TestObject* fb) {
    zmem_data::TestObj obj;
 
@@ -384,6 +546,7 @@ int main() {
    std::cout << "FlatBuffers serialized size: " << flatbuf_buffer.size() << " bytes\n";
    std::cout << "\n";
 
+
    // ========================================================================
    // Benchmarks
    // ========================================================================
@@ -452,7 +615,7 @@ int main() {
    });
 
    // --------------------------------------------------------------------------
-   // Output Results
+   // Output Results (Native Types)
    // --------------------------------------------------------------------------
 
    bencher::print_results(stage);
@@ -463,6 +626,51 @@ int main() {
    chart_cfg.margin_bottom = 140;
    chart_cfg.font_size_bar_label = 16.0;
    bencher::save_file(bencher::bar_chart(stage, chart_cfg), "results.svg");
+
+   // ========================================================================
+   // Zero-Copy Read Benchmarks
+   // ========================================================================
+
+   bencher::stage zero_copy_stage{"Zero-Copy Read Performance"};
+   zero_copy_stage.baseline = "FlatBuffers";
+
+   // ZMEM zero-copy: access fields directly from buffer using lazy_zmem API
+   zero_copy_stage.run("ZMEM", [&] {
+      auto checksum = read_zmem_zero_copy_lazy(zmem_buffer);
+      bencher::do_not_optimize(checksum);
+      return zmem_buffer.size();
+   });
+
+   zero_copy_stage.run("Cap'n Proto", [&] {
+      kj::ArrayPtr<const kj::byte> bytes(capnp_buffer.data(), capnp_buffer.size());
+      kj::ArrayPtr<const capnp::word> words(
+         reinterpret_cast<const capnp::word*>(bytes.begin()),
+         bytes.size() / sizeof(capnp::word));
+      ::capnp::FlatArrayMessageReader message(words);
+      auto checksum = read_capnp_zero_copy(message);
+      bencher::do_not_optimize(checksum);
+      return capnp_buffer.size();
+   });
+
+   zero_copy_stage.run("FlatBuffers", [&] {
+      auto fb = benchmark::GetTestObject(flatbuf_buffer.data());
+      auto checksum = read_flatbuffer_zero_copy(fb);
+      bencher::do_not_optimize(checksum);
+      return flatbuf_buffer.size();
+   });
+
+   // --------------------------------------------------------------------------
+   // Output Results (Zero-Copy)
+   // --------------------------------------------------------------------------
+
+   bencher::print_results(zero_copy_stage);
+
+   bencher::save_file(bencher::to_markdown(zero_copy_stage), "results_zero_copy.md");
+
+   chart_config zero_copy_cfg;
+   zero_copy_cfg.margin_bottom = 100;
+   zero_copy_cfg.font_size_bar_label = 20.0;
+   bencher::save_file(bencher::bar_chart(zero_copy_stage, zero_copy_cfg), "results_zero_copy.svg");
 
    return 0;
 }

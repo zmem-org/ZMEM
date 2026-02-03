@@ -18,9 +18,21 @@ ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization per
 
 ### Benchmark Results
 
+#### Reading/Writing Native C++ Types
+
+This benchmark measures serialization **from** and deserialization **to** native C++ types (structs, `std::string`, `std::vector`). This is ZMEM's primary use case.
+
 ![ZMEM Benchmark Results](results.svg)
 
 *Throughput in MB/s (higher is better). Benchmarked using [Glaze](https://github.com/stephenberry/glaze) on Apple M1 Max.*
+
+#### Zero-Copy Field Access
+
+This benchmark compares zero-copy field access - reading data directly from the serialized buffer without allocating native types like `std::string` or `std::vector`:
+
+![Zero-Copy Read Performance](results_zero_copy.svg)
+
+*ZMEM and FlatBuffers achieve similar zero-copy performance (~14.5 GB/s). Cap'n Proto's accessor pattern has more overhead (2.8 GB/s).*
 
 ### Design Philosophy
 

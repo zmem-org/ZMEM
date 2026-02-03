@@ -6,14 +6,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-# Fetch Glaze (zmem branch)
-FetchContent_Declare(
-  glaze
-  GIT_REPOSITORY https://github.com/stephenberry/glaze.git
-  GIT_TAG zmem
-  GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(glaze)
+# Use local glaze library (for development) or fetch from GitHub
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../glaze/CMakeLists.txt")
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../glaze ${CMAKE_BINARY_DIR}/glaze)
+  message(STATUS "Using local glaze from ${CMAKE_CURRENT_SOURCE_DIR}/../glaze")
+else()
+  # Fetch Glaze (zmem branch)
+  FetchContent_Declare(
+    glaze
+    GIT_REPOSITORY https://github.com/stephenberry/glaze.git
+    GIT_TAG zmem
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(glaze)
+endif()
 
 # Add a simple ZMEM-only benchmark target
 add_executable(zmem_bench benchmarks/zmem_bench.cpp)

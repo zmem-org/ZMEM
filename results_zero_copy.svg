@@ -1,0 +1,83 @@
+<svg width="1000" height="600" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg" version="1.1">
+  <rect width="100%" height="100%" fill="#FFFFFF"/>
+  <defs>
+    <linearGradient id="grad0" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#357A38;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196F3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1769AA;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9800;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B26A00;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9C27B0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6D1B7B;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad4" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F44336;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#AA2E25;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad5" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#009688;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00695F;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad6" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3F51B5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2C387E;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad7" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#795548;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#543B32;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad8" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00BCD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#008394;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad9" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#E91E63;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A31545;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <text x="500" y="40" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32.0" font-weight="bold"></text>
+  <text x="60" y="300" text-anchor="middle" transform="rotate(-90, 48, 300)" font-family="Arial, Helvetica, sans-serif" font-size="28.0" font-weight="bold">MB/s</text>
+  <text x="535" y="566.6666666666666" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="28.0" font-weight="bold"></text>
+  <line x1="120" y1="80" x2="120" y2="500" stroke="black" stroke-width="2" />
+  <line x1="120" y1="500.00" x2="950" y2="500.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="500.00" x2="120" y2="500.00" stroke="black" />
+  <text x="110" y="505.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">0</text>
+  <line x1="120" y1="416.00" x2="950" y2="416.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="416.00" x2="120" y2="416.00" stroke="black" />
+  <text x="110" y="421.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">2947</text>
+  <line x1="120" y1="332.00" x2="950" y2="332.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="332.00" x2="120" y2="332.00" stroke="black" />
+  <text x="110" y="337.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">5895</text>
+  <line x1="120" y1="248.00" x2="950" y2="248.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="248.00" x2="120" y2="248.00" stroke="black" />
+  <text x="110" y="253.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">8842</text>
+  <line x1="120" y1="164.00" x2="950" y2="164.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="164.00" x2="120" y2="164.00" stroke="black" />
+  <text x="110" y="169.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">11789</text>
+  <line x1="120" y1="80.00" x2="950" y2="80.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="80.00" x2="120" y2="80.00" stroke="black" />
+  <text x="110" y="85.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">14737</text>
+  <g>
+    <rect x="180.00" y="80.00" width="196.67" height="420.00" fill="url(#grad0)" rx="5" ry="5" />
+    <text x="278.33" y="70.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">14737</text>
+  </g>
+  <text x="278.33" y="520.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="20.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 278.33, 520.00)">ZMEM</text>
+  <g>
+    <rect x="436.67" y="418.85" width="196.67" height="81.15" fill="url(#grad1)" rx="5" ry="5" />
+    <text x="535.00" y="408.85" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">2847</text>
+  </g>
+  <text x="535.00" y="520.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="20.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 535.00, 520.00)">Cap'n Proto</text>
+  <g>
+    <rect x="693.33" y="85.82" width="196.67" height="414.18" fill="url(#grad2)" rx="5" ry="5" />
+    <text x="791.67" y="75.82" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">14532</text>
+  </g>
+  <text x="791.67" y="520.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="20.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 791.67, 520.00)">FlatBuffers</text>
+</svg>
