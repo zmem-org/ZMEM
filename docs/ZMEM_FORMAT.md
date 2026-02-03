@@ -2328,7 +2328,7 @@ Variable section:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Each inner vector is serialized as `[count:8][element_data...]` where elements follow the rules for that element type.
+Each inner vector is serialized as `[count:8][element_data...][padding]` where elements follow the rules for that element type. **Each inner vector is padded to an 8-byte boundary** to maintain alignment for subsequent count headers.
 
 **Example**: `[[i32]]` with `[[1, 2], [3, 4, 5], []]`
 
@@ -2337,20 +2337,26 @@ Offset  Size  Field
 ------  ----  -----
 0       8     offsets[0] = 0
 8       8     offsets[1] = 16
-16      8     offsets[2] = 36
-24      8     offsets[3] = 44  (total data size)
+16      8     offsets[2] = 40
+24      8     offsets[3] = 48  (total data size)
 --- Data section starts at offset 32 ---
 32      8     inner[0].count = 2
 40      4     inner[0].data[0] = 1
 44      4     inner[0].data[1] = 2
+--- inner[0] is 16 bytes (already 8-byte aligned) ---
 48      8     inner[1].count = 3
 56      4     inner[1].data[0] = 3
 60      4     inner[1].data[1] = 4
 64      4     inner[1].data[2] = 5
-68      8     inner[2].count = 0  (empty vector)
+68      4     [padding to 8-byte boundary]
+--- inner[1] is 24 bytes (padded from 20) ---
+72      8     inner[2].count = 0  (empty vector)
+--- inner[2] is 8 bytes ---
 ------
-Total: 76 bytes
+Total: 80 bytes
 ```
+
+All inner vector count headers are 8-byte aligned (offsets 32, 48, 72), satisfying the zero-copy alignment guarantee.
 
 #### Vectors of Strings
 
@@ -2403,12 +2409,12 @@ Each level uses the same offset table + data pattern recursively.
 
 #### Summary: Vector Wire Format by Element Type
 
-| Element Type | Offset Table? | Element Format |
-|--------------|---------------|----------------|
-| Fixed (`i32`, `Vec3`, etc.) | No | Raw bytes, `sizeof(T)` each |
-| Variable struct | Yes | `[size:8][inline][variable]` |
-| Inner vector `[T]` | Yes | `[count:8][data...]` |
-| `string` | Yes | Raw bytes (length from offsets) |
+| Element Type | Offset Table? | Element Format | Padding |
+|--------------|---------------|----------------|---------|
+| Fixed (`i32`, `Vec3`, etc.) | No | Raw bytes, `sizeof(T)` each | None (contiguous) |
+| Variable struct | Yes | `[size:8][inline][variable]` | To 8-byte boundary |
+| Inner vector `[T]` | Yes | `[count:8][data...][pad]` | To 8-byte boundary |
+| `string` | Yes | Raw bytes (length from offsets) | None |
 
 ### Maps
 
