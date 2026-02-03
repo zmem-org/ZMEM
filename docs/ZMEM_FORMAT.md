@@ -1298,6 +1298,8 @@ static_assert(alignof(int128_t) == 16);
 
 Without `alignas(16)`, a struct of two `uint64_t` would only have 8-byte alignment, causing layout mismatches.
 
+**Restriction: No vectors of 128-bit types.** `i128` and `u128` cannot be used as vector elements (`[i128]`, `[u128]`) because ZMEM's variable section uses 8-byte alignment, which would cause misalignment on platforms requiring 16-byte alignment for these types. Use fixed arrays (`i128[N]`) within structs instead, where natural alignment applies.
+
 #### Floating Point
 
 IEEE 754 binary representation:
@@ -2230,7 +2232,9 @@ Vector elements are classified into three categories:
 
 #### Vectors of Fixed Elements
 
-For `[T]` where T is fixed (trivially copyable), elements are stored **contiguously**:
+For `[T]` where T is fixed (trivially copyable), elements are stored **contiguously**.
+
+**Restriction**: `i128` and `u128` cannot be used as vector elements because the variable section uses 8-byte alignment, but these types require 16-byte alignment. Use fixed arrays (`i128[N]`) in structs instead.
 
 ```
 Variable section:
