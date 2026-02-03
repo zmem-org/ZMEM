@@ -8,7 +8,7 @@ ZMEM (Zero-copy Memory Format) is a high-performance binary serialization format
 
 - **Minimal overhead** for fixed structs (direct memory representation, padded to 8-byte boundaries)
 - **Zero-copy reads** where possible (data can be accessed in-place)
-- **Predictable performance** with no schema compilation required
+- **Predictable performance** with optional schema (C++ uses reflection, no schema file required)
 
 ## Core Concept: Fixed vs Variable Types
 
@@ -256,6 +256,6 @@ struct glz::meta<Entity> {
 
 3. **Little-endian**: All multi-byte values use little-endian encoding (matches x86/ARM)
 
-4. **No schema compilation**: Unlike Cap'n Proto or FlatBuffers, no separate build step required
+4. **Optional schema**: C++ with Glaze uses compile-time reflection (no schema file needed). For cross-language use, an optional `.zmem` schema language is available
 
 5. **Offset-based references**: Variable data uses offsets (not pointers), enabling zero-copy deserialization and memory mapping

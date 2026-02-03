@@ -222,6 +222,11 @@ close(fd);
 
 ## Schema Format
 
+**Schema files are optional.** For C++ with [Glaze](https://github.com/stephenberry/glaze), you can use native structs directly via compile-time reflection—no schema file or code generation needed. The `.zmem` schema language described below is provided for:
+- Cross-language interoperability (code generation for Rust, C, etc.)
+- Explicit type documentation
+- Tooling and validation
+
 ZMEM uses a minimal schema language for defining types. Schema files use the `.zmem` extension.
 
 ### Basic Syntax
