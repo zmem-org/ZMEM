@@ -3099,46 +3099,68 @@ Total: 136 bytes (8 size header + 128 content)
 
 ### Array Message
 
-For serializing a contiguous sequence of elements (`std::vector<T>`, `std::array<T, N>`, raw arrays):
+For serializing a sequence of elements (`std::vector<T>`, `std::array<T, N>`, raw arrays).
+
+#### Arrays of Fixed Elements
+
+For fixed-size elements (primitives, fixed structs), elements are stored **contiguously**:
 
 ```
 ┌─────────────────────────┬─────────────────────────┐
 │        Count            │        Elements         │
-│       8 bytes           │   count * sizeof(T)     │
+│       8 bytes           │   count × element_size  │
 └─────────────────────────┴─────────────────────────┘
 ```
 
 | Field | Size | Description |
 |-------|------|-------------|
 | Count | 8 | Number of elements (u64, little-endian) |
-| Elements | varies | Raw element bytes, contiguous |
+| Elements | count × padded_size_8(sizeof(T)) | Raw element bytes, contiguous, each padded to 8 bytes |
 
-**Total message size**: `8 + count * sizeof(T)` — **8-byte overhead only**
+**Total message size**: `8 + count × padded_size_8(sizeof(T))`
+
+#### Arrays of Variable Elements
+
+For variable-size elements (variable structs, nested vectors, strings), an **offset table** enables random access:
+
+```
+┌─────────────────────────┬─────────────────────────┬─────────────────────────┐
+│        Count            │     Offset Table        │   Self-contained        │
+│       8 bytes           │   (count+1) × 8 bytes   │   Elements...           │
+└─────────────────────────┴─────────────────────────┴─────────────────────────┘
+```
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Count | 8 | Number of elements (u64, little-endian) |
+| Offset Table | (count+1) × 8 | Byte offsets to each element (relative to end of offset table) |
+| Elements | varies | Self-contained elements, each with its own size header |
+
+The offset table includes a sentinel entry (offsets[count]) containing the total data size.
+
+#### What Arrays Can Contain
+
+| Element Type | Supported | Storage Mode |
+|--------------|-----------|--------------|
+| Primitives (`f32`, `i32`, etc.) | Yes | Contiguous (padded to 8 bytes) |
+| Fixed structs (no vectors) | Yes | Contiguous (padded to 8 bytes) |
+| Variable structs (with vectors) | Yes | Offset table + self-contained elements |
+| Nested vectors (`[[T]]`) | Yes | Offset table + self-contained inner vectors |
+| Vectors of strings (`[string]`) | Yes | Offset table + length-prefixed strings |
 
 **Key properties**:
-- Elements are stored contiguously with no padding between them
-- The 8-byte count header means elements start at 8-byte aligned offset
 - Empty arrays are valid: count = 0, total size = 8 bytes
-- Element type `T` must be ZMEM-conforming (primitive, fixed struct, or variable struct)
+- Fixed elements use contiguous storage for O(1) random access via `base + i × element_size`
+- Variable elements use offset table for O(1) random access via `offsets[i]`
+- Element type `T` must be ZMEM-conforming
 
 #### Supported Containers
-
-Any container with contiguous storage can be serialized as a ZMEM Array:
 
 | Language | Source Types | Deserialization Target |
 |----------|--------------|------------------------|
 | C++ | `std::vector<T>`, `std::array<T,N>`, `T[]`, `std::span<T>` | `std::vector<T>`, `std::span<const T>` (zero-copy view) |
 | Rust | `Vec<T>`, `[T; N]`, `&[T]` | `Vec<T>`, `&[T]` (zero-copy view) |
 | C | `T[]`, `T*` with count | `T*` with count |
-
-#### What Arrays Can Contain
-
-| Element Type | Supported | Storage Mode |
-|--------------|-----------|--------------|
-| Primitives (`f32`, `i32`, etc.) | Yes | Contiguous |
-| Fixed structs (no vectors) | Yes | Contiguous |
-| Variable structs (with vectors) | Yes | Offset table + elements |
-| Nested vectors (`vector<vector<T>>`) | No | Not supported |
 
 **Note**: Non-contiguous containers (`std::deque`, `std::list`) cannot be serialized directly - convert to `std::vector` first.
 
