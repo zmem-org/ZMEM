@@ -243,7 +243,7 @@ Total: 52 bytes
 | Aspect | ZMEM | FlatBuffers |
 |--------|-------|-------------|
 | Tag size | Configurable (`u8`, `u16`, `u32`, `u64`) | Fixed `uint8` |
-| Max variants | 2^64 (with `u64` tag) | 255 |
+| Max variants | 2^64−1 (with `u64` tag) | 255 |
 | Unit variants | ✅ No payload | ✅ `NONE` type |
 | Inline struct variants | ✅ Yes | ❌ Must reference table |
 | Type reference variants | ✅ Yes | ✅ Yes |

@@ -14,7 +14,7 @@ ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization per
 - **8-byte size alignment** - All struct sizes are padded to multiples of 8 bytes for safe zero-copy access
 - **Deterministic output** - Identical data always produces identical bytes (content-addressable storage friendly)
 - **Memory-mapped file support** - O(1) random access to any field in large files
-- **Large data support** - 64-bit size headers support documents up to 2^64 bytes and arrays up to 2^64 elements
+- **Large data support** - 64-bit size headers support documents up to 2^64−1 bytes and arrays up to 2^64−1 elements
 
 ### Benchmark Results
 

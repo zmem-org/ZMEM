@@ -332,7 +332,7 @@ This is elegant but adds complexity.
 |--------|-------|-------------|
 | Syntax | `union Name : tag_type { ... }` | Anonymous within struct |
 | Tag size | Configurable (u8, u16, u32, u64) | Fixed 16-bit |
-| Max variants | 2^64 (with u64) | 65535 |
+| Max variants | 2^64−1 (with u64) | 65535 |
 | Named unions | ✅ First-class type | ❌ Must embed in struct |
 | Multiple unions | ✅ Multiple union fields | ⚠️ One anonymous union per struct |
 | Union of unions | ✅ Supported | ❌ Not directly |

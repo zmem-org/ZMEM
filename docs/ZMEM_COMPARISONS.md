@@ -15,8 +15,8 @@ A brief comparison of ZMEM with other binary serialization formats.
 | Dynamic array overhead | 8 bytes | 4 bytes | 8 bytes | 1-2 bytes + length |
 | Random access | Yes | Yes | Yes | No |
 | Native mutable state | Yes | No | No | Yes |
-| Max document size | 2^64 bytes | ~2 GB (32-bit offsets) | 2^64 bytes (multi-segment) | ~2 GB (default) |
-| Max array elements | 2^64 | ~2^32 | ~2^29 per List | ~2^32 (varint) |
+| Max document size | 2^64−1 bytes | ~2 GB (32-bit offsets) | 2^64−1 bytes (multi-segment) | ~2 GB (default) |
+| Max array elements | 2^64−1 | ~2^32 | ~2^29 per List | ~2^32 (varint) |
 
 ## Wire Size Comparison
 
