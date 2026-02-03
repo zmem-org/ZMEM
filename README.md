@@ -16,6 +16,14 @@ ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization per
 - **Memory-mapped file support** - O(1) random access to any field in large files
 - **Large data support** - 64-bit size headers support documents up to 2^64 bytes and arrays up to 2^64 elements
 
+### Benchmark Results
+
+<p align="center">
+  <img src="./results.svg" alt="ZMEM Benchmark Results" width="800">
+</p>
+
+<p align="center"><i>Throughput in MB/s (higher is better). Benchmarked using <a href="https://github.com/stephenberry/glaze">Glaze</a> on Apple M1 Max.</i></p>
+
 ### Design Philosophy
 
 ZMEM makes an explicit trade-off: **no schema evolution in exchange for maximum performance**. This is the right choice when:
@@ -154,12 +162,6 @@ Structs containing vectors or variable-length strings use an 8-byte size header 
 | Deserialize | Cast or `memcpy` | Wrap buffer | Wrap buffer | Wrap buffer |
 | Field access | Compile-time offset | Compile-time offset | Pointer chase | vtable lookup |
 | Random access (mmap) | O(1) direct | O(1) with offset | O(1) with pointer | O(1) with vtable |
-
-### Benchmark Results
-
-![ZMEM Benchmark Results](results.svg)
-
-*Throughput in MB/s (higher is better). Benchmarked using [Glaze](https://github.com/stephenberry/glaze) on Apple M1 Max.*
 
 ## Building Benchmarks
 
