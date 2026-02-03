@@ -2475,19 +2475,40 @@ For `map<K, V>` where V contains vectors (including `map<K, [T]>`):
 Entry = { key: K, [padding], offset: u64, count: u64 }
 ```
 
-The offset/count reference points to data in the variable section, just like embedded vectors in structs.
+The offset/count reference points to data in the variable section (byte-8-relative), just like embedded vectors in structs.
 
-**Entry layout** for variable struct values:
+**Entry layout** for variable struct values (`map<K, VariableStruct>`):
 ```
-Entry = { key: K, [padding], <inline fields with vector refs> }
+Entry = { key: K, [padding], offset: u64 }
 ```
 
-**Wire format**:
+Variable struct values are **self-contained** in the variable section, each with its own size header (just like vectors of variable structs). The offset points to the start of the value's size header.
+
+```
+Variable section for map<K, VariableStruct>:
+┌─────────────────────────────────────────────────────────────┐
+│ Value 0: [size:8][inline section][variable section]         │
+├─────────────────────────────────────────────────────────────┤
+│ Value 1: [size:8][inline section][variable section]         │
+├─────────────────────────────────────────────────────────────┤
+│ ...                                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Wire format** (vector values):
 ```
 ┌──────────┬─────────┬─────────────────────────────┬───────────────────┐
 │ Size     │ Count   │ Entries (with refs)...      │ Variable section  │
 │ 8 bytes  │ 8 bytes │ fixed stride                │ vector data       │
 └──────────┴─────────┴─────────────────────────────┴───────────────────┘
+```
+
+**Wire format** (variable struct values):
+```
+┌──────────┬─────────┬─────────────────────────────┬─────────────────────────────┐
+│ Size     │ Count   │ Entries (key + offset)...   │ Self-contained values...    │
+│ 8 bytes  │ 8 bytes │ fixed stride                │ each with size header       │
+└──────────┴─────────┴─────────────────────────────┴─────────────────────────────┘
 ```
 
 **Example**: `map<str[32], [f32]>` with 2 entries:
@@ -2503,13 +2524,13 @@ Offset  Size  Field
 8       8     Entry count = 2
 --- Entry 0 (key: "alpha") ---
 16      32    Entry 0 key: "alpha\0..." (zero-padded)
-48      8     Entry 0 value offset: 0
+48      8     Entry 0 value offset: 104 (byte-8-relative: points to byte 112)
 56      8     Entry 0 value count: 3
 --- Entry 1 (key: "beta", sorted after "alpha") ---
 64      32    Entry 1 key: "beta\0..." (zero-padded)
-96      8     Entry 1 value offset: 12
+96      8     Entry 1 value offset: 116 (byte-8-relative: points to byte 124)
 104     8     Entry 1 value count: 2
---- Variable section (offset 112) ---
+--- Variable section (byte 112) ---
 112     4     1.0f  (entry 0, element 0)
 116     4     2.0f  (entry 0, element 1)
 120     4     3.0f  (entry 0, element 2)
@@ -2519,9 +2540,43 @@ Offset  Size  Field
 Total: 132 bytes
 ```
 
-**Map Offset Convention**: For maps with vector values (`map<K, [T]>`), the `offset` field in each entry is relative to the **start of the variable section**, NOT byte 8. This differs from struct fields where offsets are relative to byte 8.
+**Offset Convention**: Map offsets use the same byte-8-relative convention as struct fields. To resolve an offset: `absolute_position = 8 + offset`.
 
-Calculating the variable section start: `16 + (count × entry_stride)`
+**Example**: `map<u32, Entity>` where `Entity { id::u64, tags::[str[16]] }` with 2 entries:
+- 1 → Entity{id: 100, tags: ["player"]}
+- 2 → Entity{id: 200, tags: ["enemy", "boss"]}
+
+```
+Offset  Size  Field
+------  ----  -----
+0       8     Total size (after this field)
+8       8     Entry count = 2
+--- Entry 0 (key: 1) ---
+16      4     Entry 0 key: 1
+20      4     [padding to 8-byte alignment]
+24      8     Entry 0 value offset: 40 (byte-8-relative: points to byte 48)
+--- Entry 1 (key: 2) ---
+32      4     Entry 1 key: 2
+36      4     [padding]
+40      8     Entry 1 value offset: 80 (byte-8-relative: points to byte 88)
+--- Variable section: self-contained values ---
+48      8     Value 0 size: 32 (content size)
+56      8     Value 0 inline: id = 100
+64      8     Value 0 inline: tags offset = 24 (relative to byte 56)
+72      8     Value 0 inline: tags count = 1
+80      16    Value 0 variable: "player\0........" (padded str[16])
+--- Value 1 (self-contained) ---
+88      8     Value 1 size: 48 (content size)
+96      8     Value 1 inline: id = 200
+104     8     Value 1 inline: tags offset = 24 (relative to byte 96)
+112     8     Value 1 inline: tags count = 2
+120     16    Value 1 variable: "enemy\0........." (str[16])
+136     16    Value 1 variable: "boss\0.........." (str[16])
+------
+Total: 152 bytes
+```
+
+Note: Each variable struct value is self-contained. The `tags offset` in Value 1 is relative to **that value's byte 8** (byte 96), not the map's byte 8.
 
 #### Entry Ordering (Mandatory)
 
