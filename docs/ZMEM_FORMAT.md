@@ -2220,6 +2220,63 @@ The actual array data is stored in the **variable section** after the inline sec
 
 This makes each variable struct self-contained and independently deserializable.
 
+#### Map Field Wire Representation
+
+Each map field is stored in the inline section as a **map reference**:
+
+```cpp
+struct alignas(8) zmem_map_ref {
+    uint64_t offset;  // Byte offset to map entries (byte-8-relative)
+    uint64_t count;   // Number of entries
+};
+```
+
+- Size: 16 bytes
+- Alignment: 8 bytes
+
+**Variable section layout for map fields**:
+
+For **fixed maps** (`map<K, FixedV>`):
+```
+[Entry 0][Entry 1]...[Entry n-1]
+```
+Entries are stored contiguously with no additional header (count is in the reference).
+
+For **variable maps** (`map<K, [T]>` or `map<K, VariableStruct>`):
+```
+[Entry 0][Entry 1]...[Entry n-1][Variable data...]
+```
+Each entry contains offset/count (for vector values) or offset (for variable struct values) pointing to data within the same variable section.
+
+**Offset Reference Point**: Map entry offsets use the same byte-8-relative convention as vector fields. For nested variable struct values, each value is self-contained with offsets relative to its own byte 8.
+
+**Example**: Struct with a map field
+
+```cpp
+struct Config {
+    uint64_t id;
+    map<str[16], f32> settings;  // map field
+};
+```
+
+```
+Offset  Size  Field
+------  ----  -----
+0       8     [Size header]
+8       8     id
+16      8     settings.offset (byte-8-relative, e.g., 24 → points to byte 32)
+24      8     settings.count (e.g., 2)
+--- Variable section (byte 32) ---
+32      16    Entry 0 key: "volume\0........."
+48      4     Entry 0 value: 0.8f
+52      4     [padding]
+56      16    Entry 1 key: "brightness\0...."
+72      4     Entry 1 value: 1.0f
+76      4     [padding to 8-byte boundary]
+------
+Total: 80 bytes (8 header + 72 content)
+```
+
 #### Element Type Categories
 
 Vector elements are classified into three categories:
