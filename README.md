@@ -57,7 +57,7 @@ auto player = CreatePlayer(builder, 42, name, scores);
 builder.Finish(player);
 ```
 
-With ZMEM, you use your existing C++ structs directly—no schema file, no code generation, no builder:
+With ZMEM (using [Glaze](https://github.com/stephenberry/glaze)), you use your existing C++ structs directly—no schema file, no code generation, no builder:
 
 ```cpp
 // ZMEM: Use native C++ types directly
@@ -72,10 +72,10 @@ std::string buffer;
 glz::write_zmem(player, buffer);  // That's it
 ```
 
-| | FlatBuffers | ZMEM |
-|--|-------------|------|
-| Schema definition | `.fbs` file required | Use C++ structs directly |
-| Code generation | Required (`flatc`) | None (uses reflection) |
+| | FlatBuffers | ZMEM (C++ with Glaze) |
+|--|-------------|------------------------|
+| Schema definition | `.fbs` file required | Use C++ structs directly (optional `.zmem` schema for cross-language) |
+| Code generation | Required (`flatc`) | None for C++ (optional codegen for other languages) |
 | Serialization API | Builder pattern | Single function call |
 | `std::string` / `std::vector` | Supported (via builder) | Supported (native) |
 | Schema evolution | Yes | No |
