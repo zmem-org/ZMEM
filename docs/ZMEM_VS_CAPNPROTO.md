@@ -6,7 +6,7 @@ This document provides a detailed technical comparison between **ZMEM** and **Ca
 
 | Aspect | ZMEM | Cap'n Proto |
 |--------|-------|-------------|
-| **Primary Goal** | Maximum performance, zero overhead | Zero-copy with schema evolution + RPC |
+| **Primary Goal** | Maximum performance, minimal overhead | Zero-copy with schema evolution + RPC |
 | **Schema Evolution** | ❌ Not supported | ✅ Forward-compatible |
 | **Fixed Struct Overhead** | **0 bytes** | 8-24 bytes (segment + pointers) |
 | **Alignment** | 8-byte struct sizes, 8-byte variable data | 64-bit words (8-byte minimum) |
@@ -23,7 +23,7 @@ This document provides a detailed technical comparison between **ZMEM** and **Ca
 
 ZMEM assumes **all communicating parties use identical schemas** at compile time. This enables:
 
-- **Zero overhead** for fixed structs (direct `memcpy`)
+- **Minimal overhead** for fixed structs (direct `memcpy` + 8-byte padding)
 - **8-byte struct sizes** (all structs padded to multiples of 8)
 - **8-byte alignment** for variable section data (safe zero-copy access)
 - **Fixed offsets** known at compile time

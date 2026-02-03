@@ -1,6 +1,6 @@
 # ZMEM
 
-A high-performance binary serialization format with **zero overhead** for fixed structs and **zero-copy** access.
+A high-performance binary serialization format with **minimal overhead** for fixed structs and **zero-copy** access.
 
 ## Overview
 
@@ -8,7 +8,7 @@ ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization per
 
 ### Key Features
 
-- **Zero overhead for fixed structs** - Direct `memcpy` serialization with no headers, pointers, or metadata
+- **Minimal overhead for fixed structs** - Direct `memcpy` serialization with no headers or pointers (only padding to 8-byte boundary)
 - **Zero-copy deserialization** - Access data in-place without parsing or allocation
 - **Native mutable state** - Fixed structs can serve as your application's data model directly
 - **8-byte size alignment** - All struct sizes are padded to multiples of 8 bytes for safe zero-copy access
@@ -111,10 +111,10 @@ struct Player {
 | Structure | ZMEM | Cap'n Proto | FlatBuffers |
 |-----------|------|-------------|-------------|
 | `Point { x, y: f32 }` | **8 bytes** | 24 bytes | 20 bytes |
-| `Vec3 { x, y, z: f32 }` | **12 bytes** | 24 bytes | 20 bytes |
-| Empty struct | **0 bytes** | 16 bytes | 4 bytes |
+| `Vec3 { x, y, z: f32 }` | **16 bytes** (12 + 4 padding) | 24 bytes | 20 bytes |
+| Empty struct | **8 bytes** (padding) | 16 bytes | 4 bytes |
 
-For fixed structs, ZMEM has literally zero overhead—the wire format is identical to the in-memory representation.
+For fixed structs, ZMEM has minimal overhead—just padding to 8-byte boundaries for safe zero-copy access. No headers, vtables, or pointers.
 
 ## Type System
 
@@ -156,7 +156,7 @@ type Color = u8[4]
 
 ZMEM categorizes types into two categories:
 
-### Fixed Types (Zero Overhead)
+### Fixed Types (Minimal Overhead)
 
 Fixed types are trivially copyable and serialize with a direct `memcpy`. Struct sizes are padded to multiples of 8 bytes:
 

@@ -6,7 +6,7 @@ This document provides a detailed technical comparison between **ZMEM** and **Fl
 
 | Aspect | ZMEM | FlatBuffers |
 |--------|-------|-------------|
-| **Primary Goal** | Maximum performance, zero overhead | Zero-copy with schema evolution |
+| **Primary Goal** | Maximum performance, minimal overhead | Zero-copy with schema evolution |
 | **Schema Evolution** | ❌ Not supported | ✅ Fully supported |
 | **Fixed Struct Overhead** | **0 bytes** | 4-8 bytes (vtable offset) |
 | **Zero-Copy Read** | ✅ Yes | ✅ Yes |
@@ -23,7 +23,7 @@ This document provides a detailed technical comparison between **ZMEM** and **Fl
 
 ZMEM assumes **all communicating parties use identical schemas**. This enables:
 
-- **Zero overhead** for fixed structs (direct `memcpy`)
+- **Minimal overhead** for fixed structs (direct `memcpy` + 8-byte padding)
 - **No vtables** or field tags
 - **Fixed offsets** known at compile time
 - **Compile-time validation** via type signatures

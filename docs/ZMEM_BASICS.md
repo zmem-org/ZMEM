@@ -6,7 +6,7 @@ A beginner-friendly guide to understanding the ZMEM binary serialization format.
 
 ZMEM (Zero-copy Memory Format) is a high-performance binary serialization format designed for:
 
-- **Zero overhead** for fixed structs (direct memory representation)
+- **Minimal overhead** for fixed structs (direct memory representation, padded to 8-byte boundaries)
 - **Zero-copy reads** where possible (data can be accessed in-place)
 - **Predictable performance** with no schema compilation required
 

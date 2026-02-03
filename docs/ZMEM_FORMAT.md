@@ -5,11 +5,11 @@
 
 ## Overview
 
-ZMEM is a binary serialization format designed for maximum performance zero-copy deserialization. The format enables direct `memcpy` operations with **zero overhead** for fixed structs, while maintaining cross-language compatibility through strict layout rules and compile-time validation.
+ZMEM is a binary serialization format designed for maximum performance zero-copy deserialization. The format enables direct `memcpy` operations with **minimal overhead** for fixed structs (only 8-byte padding), while maintaining cross-language compatibility through strict layout rules and compile-time validation.
 
 ### Goals
 
-1. **Maximum performance** - Zero header overhead for fixed structs
+1. **Maximum performance** - Minimal overhead for fixed structs (only 8-byte padding)
 2. **Zero-copy deserialization** - Direct memory mapping without parsing
 3. **Cross-language compatibility** - Deterministic layout across C++, Rust, and C
 4. **Compile-time type safety** - Static validation of struct conformance
@@ -2870,10 +2870,11 @@ For serializing a trivially-copyable struct (no vector fields):
 | Field | Size | Description |
 |-------|------|-------------|
 | Payload | sizeof(T) | Raw struct bytes, directly memcpy-able |
+| Padding | 0-7 bytes | Padding to 8-byte boundary |
 
-**Total message size**: `sizeof(T)` — **zero overhead**
+**Total message size**: `(sizeof(T) + 7) & ~7` — **minimal overhead** (only padding)
 
-This enables maximum performance: serialize with `memcpy(&buf, &struct, sizeof(T))`, deserialize with `memcpy(&struct, buf, sizeof(T))` or direct pointer cast.
+This enables maximum performance: serialize with `memcpy` plus padding bytes, deserialize with `memcpy(&struct, buf, sizeof(T))` or direct pointer cast (skipping padding).
 
 ---
 
@@ -3318,12 +3319,14 @@ Outer{m::Middle{data::Inner{value::i32},flags::u16},active::bool}
 ### Writing a Fixed Struct Message
 
 1. Write struct bytes directly: `memcpy(buf, &value, sizeof(T))`
+2. Write padding zeros to reach 8-byte boundary
 
-That's it. Zero overhead.
+Minimal overhead—just padding bytes.
 
 ### Reading a Fixed Struct Message
 
 1. Read struct bytes directly: `memcpy(&value, buf, sizeof(T))`
+2. Skip padding bytes (wire size is `(sizeof(T) + 7) & ~7`)
 2. Or cast pointer: `T* value = reinterpret_cast<T*>(buf)`
 
 ### Writing a Variable Struct Message
@@ -3865,10 +3868,12 @@ static_assert(!is_zmem_union_v<int>);
 **Serialization (fixed union)**:
 
 ```cpp
-// Serialize - just memcpy (zero overhead)
+// Serialize - memcpy + padding to 8-byte boundary
 Result result = Result::make_ok(42);
-uint8_t buffer[sizeof(Result)];
+constexpr size_t wire_size = (sizeof(Result) + 7) & ~size_t(7);
+uint8_t buffer[wire_size];
 std::memcpy(buffer, &result, sizeof(Result));
+std::memset(buffer + sizeof(Result), 0, wire_size - sizeof(Result));  // padding
 
 // Deserialize
 Result restored;
@@ -4466,11 +4471,22 @@ static_assert(alignof(Point) == 4);
 #include <vector>
 #include <cstdint>
 
-// Serialize fixed struct - ZERO overhead
+// Serialize fixed struct - minimal overhead (only 8-byte padding)
 template<typename T>
 void serialize(const T& value, uint8_t* buf) {
     static_assert(is_fixed_zmem_struct<T>());
     std::memcpy(buf, &value, sizeof(T));
+    // Pad to 8-byte boundary
+    constexpr size_t padding = (8 - (sizeof(T) % 8)) % 8;
+    if constexpr (padding > 0) {
+        std::memset(buf + sizeof(T), 0, padding);
+    }
+}
+
+// Wire size of fixed struct (padded to 8 bytes)
+template<typename T>
+constexpr size_t wire_size() {
+    return (sizeof(T) + 7) & ~size_t(7);
 }
 
 // Deserialize fixed struct
