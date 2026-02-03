@@ -2194,8 +2194,8 @@ Structs may contain vector fields (`std::vector<T>` in C++, `Vec<T>` in Rust). T
 
 | Category | Description | Wire Format |
 |----------|-------------|-------------|
-| **Fixed Struct** | No vector fields (trivially copyable) | Direct memcpy, 8-byte header |
-| **Variable Struct** | Has vector field(s) | Offset-based, inline + variable sections |
+| **Fixed Struct** | No vector fields (trivially copyable) | Direct memcpy, padded to 8-byte boundary (no header) |
+| **Variable Struct** | Has vector field(s) | 8-byte size header + inline section + variable section |
 
 #### Vector Field Wire Representation
 
@@ -2765,6 +2765,8 @@ struct_size = offset
 
 ### Layout Examples
 
+**Note**: These examples show C++ memory layout (`sizeof`). Wire size adds padding to reach an 8-byte boundary: `wire_size = (sizeof(T) + 7) & ~7`. For example, a 12-byte struct becomes 16 bytes on wire.
+
 #### Example 1: Fixed Struct
 
 ```cpp
@@ -2848,9 +2850,9 @@ ZMEM supports three message types: **Fixed Struct**, **Variable Struct** (with e
 
 | Message Type | Header | Overhead | Use Case |
 |--------------|--------|----------|----------|
-| Fixed Struct | **None** | 0 bytes | Single trivially-copyable struct |
-| Variable Struct | Size (8B) | 8 bytes | Struct with vector field(s) |
-| Array | Count (8B) | 8 bytes | Sequence of elements |
+| Fixed Struct | **None** | 0-7 bytes (8-byte padding) | Single trivially-copyable struct |
+| Variable Struct | Size (8B) | 8 bytes + padding | Struct with vector field(s) |
+| Array | Count (8B) | 8 bytes + element padding | Sequence of elements |
 
 The receiver must know the expected type at compile time. There is no type identification in the wire format.
 
@@ -4804,14 +4806,17 @@ Offset  Size  Field
 8       4     elements[0].x (f32)
 12      4     elements[0].y (f32)
 16      4     elements[0].z (f32)
-20      4     elements[1].x (f32)
-24      4     elements[1].y (f32)
-28      4     elements[1].z (f32)
-32      4     elements[2].x (f32)
-36      4     elements[2].y (f32)
-40      4     elements[2].z (f32)
+20      4     [padding to 8-byte boundary]
+24      4     elements[1].x (f32)
+28      4     elements[1].y (f32)
+32      4     elements[1].z (f32)
+36      4     [padding]
+40      4     elements[2].x (f32)
+44      4     elements[2].y (f32)
+48      4     elements[2].z (f32)
+52      4     [padding]
 ------
-Total: 44 bytes (8 count + 36 payload)
+Total: 56 bytes (8 count + 48 payload, each element padded to 16 bytes)
 ```
 
 **C++ usage**:

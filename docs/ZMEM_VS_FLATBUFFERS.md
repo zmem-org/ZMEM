@@ -8,7 +8,7 @@ This document provides a detailed technical comparison between **ZMEM** and **Fl
 |--------|-------|-------------|
 | **Primary Goal** | Maximum performance, minimal overhead | Zero-copy with schema evolution |
 | **Schema Evolution** | ❌ Not supported | ✅ Fully supported |
-| **Fixed Struct Overhead** | **0 bytes** | 4-8 bytes (vtable offset) |
+| **Fixed Struct Overhead** | **0-7 bytes** (8-byte padding) | 4-8 bytes (vtable offset) |
 | **Zero-Copy Read** | ✅ Yes | ✅ Yes |
 | **Direct memcpy** | ✅ Yes (fixed structs) | ❌ No (except inline structs) |
 | **Nested Vectors** | ✅ Yes | ✅ Yes |
@@ -59,7 +59,7 @@ Offset 4: y (f32)
 Total: 8 bytes
 ```
 
-**Overhead: 0 bytes (0%)**
+**Overhead: 0 bytes** (Point is already 8-byte aligned)
 
 Serialization: `memcpy(buffer, &point, 8)`
 Deserialization: `memcpy(&point, buffer, 8)` or `Point* p = (Point*)buffer`
@@ -175,7 +175,7 @@ Total: 52 bytes
 | Fields | Data Size | ZMEM Total | FlatBuffers Total | FB Overhead |
 |--------|-----------|-------------|-------------------|-------------|
 | 2 | 8 B | 8 B | 32 B | +300% |
-| 5 | 20 B | 20 B | 44 B | +120% |
+| 5 | 20 B | 24 B (padded) | 44 B | +83% |
 | 10 | 40 B | 40 B | 68 B | +70% |
 | 20 | 80 B | 80 B | 108 B | +35% |
 | 50 | 200 B | 200 B | 188 B | -6% (FB wins) |
@@ -628,7 +628,7 @@ struct ItemBuilder {
 
 | Criterion | ZMEM | FlatBuffers | Winner |
 |-----------|-------|-------------|--------|
-| Fixed struct overhead | 0 bytes | 20-40 bytes | **ZMEM** |
+| Fixed struct overhead | 0-7 bytes (padding) | 20-40 bytes | **ZMEM** |
 | Variable struct overhead | 8 bytes | 12-20 bytes | **ZMEM** |
 | Schema evolution | ❌ | ✅ | **FlatBuffers** |
 | Serialization speed | `memcpy` | Builder pattern | **ZMEM** |

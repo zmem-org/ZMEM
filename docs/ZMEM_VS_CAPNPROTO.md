@@ -8,7 +8,7 @@ This document provides a detailed technical comparison between **ZMEM** and **Ca
 |--------|-------|-------------|
 | **Primary Goal** | Maximum performance, minimal overhead | Zero-copy with schema evolution + RPC |
 | **Schema Evolution** | ❌ Not supported | ✅ Forward-compatible |
-| **Fixed Struct Overhead** | **0 bytes** | 8-24 bytes (segment + pointers) |
+| **Fixed Struct Overhead** | **0-7 bytes** (8-byte padding) | 8-24 bytes (segment + pointers) |
 | **Alignment** | 8-byte struct sizes, 8-byte variable data | 64-bit words (8-byte minimum) |
 | **Zero-Copy Read** | ✅ Yes | ✅ Yes |
 | **Direct memcpy** | ✅ Yes (fixed structs) | ❌ No (pointer-based) |
@@ -107,7 +107,7 @@ Offset 4: y (f32)
 Total: 8 bytes
 ```
 
-**Overhead: 0 bytes (0%)**
+**Overhead: 0 bytes** (Point is already 8-byte aligned)
 
 #### Cap'n Proto Wire Format (24 bytes minimum)
 
@@ -209,7 +209,7 @@ But ZMEM can also use variable-length `string`, making them comparable.
 
 | Format | Empty Struct | Struct with 1 u64 |
 |--------|--------------|-------------------|
-| ZMEM (fixed) | 0 bytes | 8 bytes |
+| ZMEM (fixed) | 8 bytes (8-byte padding) | 8 bytes |
 | ZMEM (variable) | 8 bytes (size header) | 16 bytes |
 | Cap'n Proto | 16 bytes (seg table + root ptr) | 24 bytes |
 
@@ -218,24 +218,24 @@ But ZMEM can also use variable-length `string`, making them comparable.
 | Structure | ZMEM | Cap'n Proto | ZMEM Advantage |
 |-----------|-------|-------------|-----------------|
 | Point { x, y: f32 } | 8 B | 24 B | 3× smaller |
-| Vec3 { x, y, z: f32 } | 12 B | 24 B | 2× smaller |
+| Vec3 { x, y, z: f32 } | 16 B (12 + 4 padding) | 24 B | 1.5× smaller |
 | Particle (10 fields) | 40 B | 56 B | 1.4× smaller |
-| Entity + 1 vector | 44 B | 48 B | ~Same |
+| Entity + 1 vector | 48 B | 48 B | ~Same |
 | Deep nesting (5 levels) | Variable | Variable | ZMEM slightly smaller |
 
 ### 64-bit Word Alignment Cost
 
 Cap'n Proto aligns all structs to 64-bit boundaries:
 
-| Struct | Actual Data | ZMEM Size | Cap'n Proto Size | Wasted |
-|--------|-------------|------------|------------------|--------|
-| { a: u8 } | 1 byte | 1 byte | 8 bytes | 7 bytes |
-| { a: u8, b: u16 } | 3 bytes | 4 bytes | 8 bytes | 4 bytes |
-| { a: u8, b: u8, c: u8 } | 3 bytes | 3 bytes | 8 bytes | 5 bytes |
-| { a: u32 } | 4 bytes | 4 bytes | 8 bytes | 4 bytes |
-| { a: u64 } | 8 bytes | 8 bytes | 8 bytes | 0 bytes |
+| Struct | Actual Data | ZMEM Size | Cap'n Proto Size | Notes |
+|--------|-------------|------------|------------------|-------|
+| { a: u8 } | 1 byte | 8 bytes | 8 bytes | Same (both pad to 8) |
+| { a: u8, b: u16 } | 3 bytes | 8 bytes | 8 bytes | Same |
+| { a: u8, b: u8, c: u8 } | 3 bytes | 8 bytes | 8 bytes | Same |
+| { a: u32 } | 4 bytes | 8 bytes | 8 bytes | Same |
+| { a: u64 } | 8 bytes | 8 bytes | 8 bytes | Same |
 
-**ZMEM uses 8-byte struct sizes** - all structs are padded to multiples of 8 bytes. Within structs, fields use natural alignment. Variable section data also uses 8-byte alignment. This is similar to Cap'n Proto's 64-bit word alignment, but ZMEM allows sub-8-byte fields within the inline section.
+**ZMEM uses 8-byte struct sizes** - all structs are padded to multiples of 8 bytes for safe zero-copy access. Within structs, fields use natural alignment. Variable section data also uses 8-byte alignment. This is the same as Cap'n Proto's 64-bit word alignment for struct sizes.
 
 ---
 
@@ -877,7 +877,7 @@ Each is 64 bits with a 2-bit tag.
 
 | Criterion | ZMEM | Cap'n Proto | Winner |
 |-----------|-------|-------------|--------|
-| Fixed struct overhead | 0 bytes | 16-24 bytes | **ZMEM** |
+| Fixed struct overhead | 0-7 bytes (padding) | 16-24 bytes | **ZMEM** |
 | Variable struct overhead | 8 bytes | 16+ bytes | **ZMEM** |
 | Schema evolution | ❌ | ✅ | **Cap'n Proto** |
 | RPC system | ❌ | ✅ Full-featured | **Cap'n Proto** |

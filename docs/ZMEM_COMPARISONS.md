@@ -9,9 +9,9 @@ A brief comparison of ZMEM with other binary serialization formats.
 | Zero-copy read | Yes | Yes | Yes | No |
 | Direct memcpy (fixed structs) | Yes | No | No | No |
 | Schema evolution | No | Yes | Yes | Yes |
-| Fixed struct overhead | **0 bytes** | 0 bytes (struct) / ~4 bytes (table) | ~8 bytes | 1-2 bytes/field |
+| Fixed struct overhead | **0-7 bytes** (8-byte padding) | 0 bytes (struct) / ~4 bytes (table) | ~8 bytes | 1-2 bytes/field |
 | Variable struct overhead | 8 bytes | ~4 bytes (table) | ~8 bytes | 1-2 bytes/field |
-| Fixed array overhead | **0 bytes** | 0 bytes (struct fields) | 8 bytes (List) | 1-2 bytes/element (repeated) |
+| Fixed array overhead | **0-7 bytes/element** (8-byte padding) | 0 bytes (struct fields) | 8 bytes (List) | 1-2 bytes/element (repeated) |
 | Dynamic array overhead | 8 bytes | 4 bytes | 8 bytes | 1-2 bytes + length |
 | Random access | Yes | Yes | Yes | No |
 | Native mutable state | Yes | No | No | Yes |
