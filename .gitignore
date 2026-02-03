@@ -8,5 +8,4 @@ benchmarks/benchmark_generated.h
 
 # Benchmark output
 results.md
-results.svg
 .DS_Store

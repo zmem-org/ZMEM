@@ -1,0 +1,97 @@
+<svg width="1000" height="600" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg" version="1.1">
+  <defs>
+    <linearGradient id="grad0" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#357A38;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196F3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1769AA;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF9800;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B26A00;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9C27B0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6D1B7B;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad4" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F44336;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#AA2E25;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad5" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#009688;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00695F;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad6" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3F51B5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2C387E;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad7" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#795548;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#543B32;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad8" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00BCD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#008394;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad9" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#E91E63;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A31545;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <text x="500" y="40" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32.0" font-weight="bold"></text>
+  <text x="60" y="300" text-anchor="middle" transform="rotate(-90, 48, 300)" font-family="Arial, Helvetica, sans-serif" font-size="28.0" font-weight="bold">MB/s</text>
+  <text x="535" y="553.3333333333334" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="28.0" font-weight="bold"></text>
+  <line x1="120" y1="80" x2="120" y2="460" stroke="black" stroke-width="2" />
+  <line x1="120" y1="460.00" x2="950" y2="460.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="460.00" x2="120" y2="460.00" stroke="black" />
+  <text x="110" y="465.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">0</text>
+  <line x1="120" y1="384.00" x2="950" y2="384.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="384.00" x2="120" y2="384.00" stroke="black" />
+  <text x="110" y="389.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">990</text>
+  <line x1="120" y1="308.00" x2="950" y2="308.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="308.00" x2="120" y2="308.00" stroke="black" />
+  <text x="110" y="313.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">1981</text>
+  <line x1="120" y1="232.00" x2="950" y2="232.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="232.00" x2="120" y2="232.00" stroke="black" />
+  <text x="110" y="237.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">2971</text>
+  <line x1="120" y1="156.00" x2="950" y2="156.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="156.00" x2="120" y2="156.00" stroke="black" />
+  <text x="110" y="161.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">3961</text>
+  <line x1="120" y1="80.00" x2="950" y2="80.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
+  <line x1="115" y1="80.00" x2="120" y2="80.00" stroke="black" />
+  <text x="110" y="85.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">4951</text>
+  <g>
+    <rect x="157.50" y="175.57" width="94.58" height="284.43" fill="url(#grad0)" rx="5" ry="5" />
+    <text x="204.79" y="165.57" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">3706</text>
+  </g>
+  <text x="204.79" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 204.79, 480.00)">ZMEM Write</text>
+  <g>
+    <rect x="289.58" y="338.21" width="94.58" height="121.79" fill="url(#grad1)" rx="5" ry="5" />
+    <text x="336.88" y="328.21" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1587</text>
+  </g>
+  <text x="336.88" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 336.88, 480.00)">Cap'n Proto Write</text>
+  <g>
+    <rect x="421.67" y="373.42" width="94.58" height="86.58" fill="url(#grad2)" rx="5" ry="5" />
+    <text x="468.96" y="363.42" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1128</text>
+  </g>
+  <text x="468.96" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 468.96, 480.00)">FlatBuffers Write</text>
+  <g>
+    <rect x="553.75" y="80.00" width="94.58" height="380.00" fill="url(#grad3)" rx="5" ry="5" />
+    <text x="601.04" y="70.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">4951</text>
+  </g>
+  <text x="601.04" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 601.04, 480.00)">ZMEM Read</text>
+  <g>
+    <rect x="685.83" y="412.33" width="94.58" height="47.67" fill="url(#grad4)" rx="5" ry="5" />
+    <text x="733.12" y="402.33" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">621</text>
+  </g>
+  <text x="733.12" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 733.12, 480.00)">Cap'n Proto Read</text>
+  <g>
+    <rect x="817.92" y="393.93" width="94.58" height="66.07" fill="url(#grad5)" rx="5" ry="5" />
+    <text x="865.21" y="383.93" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">861</text>
+  </g>
+  <text x="865.21" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 865.21, 480.00)">FlatBuffers Read</text>
+</svg>

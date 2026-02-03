@@ -18,11 +18,9 @@ ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization per
 
 ### Benchmark Results
 
-<p align="center">
-  <img src="./results.svg" alt="ZMEM Benchmark Results" width="800">
-</p>
+![ZMEM Benchmark Results](results.svg)
 
-<p align="center"><i>Throughput in MB/s (higher is better). Benchmarked using <a href="https://github.com/stephenberry/glaze">Glaze</a> on Apple M1 Max.</i></p>
+*Throughput in MB/s (higher is better). Benchmarked using [Glaze](https://github.com/stephenberry/glaze) on Apple M1 Max.*
 
 ### Design Philosophy
 
