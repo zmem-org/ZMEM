@@ -405,15 +405,6 @@ int main() {
       return zmem_write_buffer.size();
    });
 
-   // Pre-allocated version: compute size once, allocate, write with no resize checks
-   std::string zmem_preallocated_buffer;
-   stage.run("ZMEM Write (preallocated)", [&] {
-      zmem_preallocated_buffer.clear();
-      auto ec = glz::write_zmem_preallocated(test_data, zmem_preallocated_buffer);
-      bencher::do_not_optimize(zmem_preallocated_buffer);
-      return zmem_preallocated_buffer.size();
-   });
-
    stage.run("Cap'n Proto Write", [&] {
       ::capnp::MallocMessageBuilder message;
       populate_capnp(message, test_data);
