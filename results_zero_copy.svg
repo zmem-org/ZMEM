@@ -52,32 +52,32 @@
   <text x="110" y="505.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">0</text>
   <line x1="120" y1="416.00" x2="950" y2="416.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
   <line x1="115" y1="416.00" x2="120" y2="416.00" stroke="black" />
-  <text x="110" y="421.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">2947</text>
+  <text x="110" y="421.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">3197</text>
   <line x1="120" y1="332.00" x2="950" y2="332.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
   <line x1="115" y1="332.00" x2="120" y2="332.00" stroke="black" />
-  <text x="110" y="337.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">5895</text>
+  <text x="110" y="337.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">6394</text>
   <line x1="120" y1="248.00" x2="950" y2="248.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
   <line x1="115" y1="248.00" x2="120" y2="248.00" stroke="black" />
-  <text x="110" y="253.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">8842</text>
+  <text x="110" y="253.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">9591</text>
   <line x1="120" y1="164.00" x2="950" y2="164.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
   <line x1="115" y1="164.00" x2="120" y2="164.00" stroke="black" />
-  <text x="110" y="169.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">11789</text>
+  <text x="110" y="169.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">12788</text>
   <line x1="120" y1="80.00" x2="950" y2="80.00" stroke="#e0e0e0" stroke-dasharray="4,2" />
   <line x1="115" y1="80.00" x2="120" y2="80.00" stroke="black" />
-  <text x="110" y="85.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">14737</text>
+  <text x="110" y="85.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="22.0" fill="#333">15985</text>
   <g>
     <rect x="180.00" y="80.00" width="196.67" height="420.00" fill="url(#grad0)" rx="5" ry="5" />
-    <text x="278.33" y="70.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">14737</text>
+    <text x="278.33" y="70.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">15985</text>
   </g>
   <text x="278.33" y="520.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="20.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 278.33, 520.00)">ZMEM</text>
   <g>
-    <rect x="436.67" y="418.85" width="196.67" height="81.15" fill="url(#grad1)" rx="5" ry="5" />
-    <text x="535.00" y="408.85" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">2847</text>
+    <rect x="436.67" y="424.83" width="196.67" height="75.17" fill="url(#grad1)" rx="5" ry="5" />
+    <text x="535.00" y="414.83" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">2861</text>
   </g>
   <text x="535.00" y="520.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="20.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 535.00, 520.00)">Cap'n Proto</text>
   <g>
-    <rect x="693.33" y="85.82" width="196.67" height="414.18" fill="url(#grad2)" rx="5" ry="5" />
-    <text x="791.67" y="75.82" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">14532</text>
+    <rect x="693.33" y="118.18" width="196.67" height="381.82" fill="url(#grad2)" rx="5" ry="5" />
+    <text x="791.67" y="108.18" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">14532</text>
   </g>
   <text x="791.67" y="520.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="20.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 791.67, 520.00)">FlatBuffers</text>
 </svg>
