@@ -1298,7 +1298,14 @@ static_assert(alignof(int128_t) == 16);
 
 Without `alignas(16)`, a struct of two `uint64_t` would only have 8-byte alignment, causing layout mismatches.
 
-**Restriction: No vectors of 128-bit types.** `i128` and `u128` cannot be used as vector elements (`[i128]`, `[u128]`) because ZMEM's variable section uses 8-byte alignment, which would cause misalignment on platforms requiring 16-byte alignment for these types. Use fixed arrays (`i128[N]`) within structs instead, where natural alignment applies.
+**Restriction: No variable-section elements with alignment > 8.** Types requiring greater than 8-byte alignment cannot be used as:
+- Vector elements (`[T]`)
+- Map keys or values (`map<K, V>`)
+- Fields in variable structs that would be placed in the variable section
+
+This includes `i128`, `u128`, any struct containing these types, and any explicitly `alignas(16)` (or higher) types. ZMEM's variable section uses 8-byte alignment, which would cause misalignment on platforms enforcing stricter alignment.
+
+**Workaround**: Use fixed arrays (`i128[N]`) within fixed structs, where natural alignment applies.
 
 #### Floating Point
 
@@ -2291,7 +2298,7 @@ Vector elements are classified into three categories:
 
 For `[T]` where T is fixed (trivially copyable), elements are stored **contiguously**.
 
-**Restriction**: `i128` and `u128` cannot be used as vector elements because the variable section uses 8-byte alignment, but these types require 16-byte alignment. Use fixed arrays (`i128[N]`) in structs instead.
+**Restriction**: Types with alignment > 8 cannot be used as vector elements. This includes `i128`, `u128`, structs containing these types, and any `alignas(16+)` types. The variable section uses 8-byte alignment. Use fixed arrays within fixed structs instead.
 
 ```
 Variable section:
@@ -2853,6 +2860,13 @@ ZMEM uses **natural alignment** for fields within structs and **8-byte alignment
 8. **Variable structs are padded to 8-byte boundaries**: The total serialized size of a variable struct (inline section + variable section) is always a multiple of 8 bytes. This ensures:
    - Nested variable structs maintain alignment for subsequent fields
    - Arrays of variable structs (`[VariableType]`) remain properly aligned
+
+9. **No variable-section types with alignment > 8**: Types requiring greater than 8-byte alignment (e.g., `i128`, `u128`, structs containing them, `alignas(16+)` types) cannot be used in variable sections. This means they cannot be:
+   - Vector elements (`[T]` where `alignof(T) > 8`)
+   - Map keys or values
+   - Elements of any variable-length container
+
+   **Workaround**: Use fixed arrays (`T[N]`) within fixed structs, where natural alignment applies.
 
 **Why 8-byte alignment?** Without alignment padding, vector data could start at arbitrary offsets. For example, a `vector<int32_t>` following a 5-byte string would have its elements at a non-4-byte-aligned address. Accessing such data via `reinterpret_cast` is undefined behavior in C++. While x86 tolerates misaligned access with a small performance penalty, other architectures (ARM, etc.) may crash or corrupt data. The 8-byte alignment rule ensures all types up to 64-bit can be safely accessed via zero-copy spans.
 
