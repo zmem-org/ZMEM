@@ -11,7 +11,7 @@ ZMEM (Zero-copy Memory Format) is designed for scenarios where serialization per
 - **Zero overhead for fixed structs** - Direct `memcpy` serialization with no headers, pointers, or metadata
 - **Zero-copy deserialization** - Access data in-place without parsing or allocation
 - **Native mutable state** - Fixed structs can serve as your application's data model directly
-- **Natural alignment** - 1/2/4/8/16-byte alignment (not forced 64-bit words)
+- **8-byte size alignment** - All struct sizes are padded to multiples of 8 bytes for safe zero-copy access
 - **Deterministic output** - Identical data always produces identical bytes (content-addressable storage friendly)
 - **Memory-mapped file support** - O(1) random access to any field in large files
 - **Large data support** - 64-bit size headers support documents up to 2^64 bytes and arrays up to 2^64 elements
@@ -120,7 +120,7 @@ ZMEM categorizes types into two categories:
 
 ### Fixed Types (Zero Overhead)
 
-Fixed types are trivially copyable and serialize with a direct `memcpy`:
+Fixed types are trivially copyable and serialize with a direct `memcpy`. Struct sizes are padded to multiples of 8 bytes:
 
 ```cpp
 struct Particle {
@@ -129,8 +129,9 @@ struct Particle {
     float velocity[3];
     float mass;
 };
-// sizeof(Particle) == wire size == 36 bytes
-// Serialization: memcpy(buffer, &particle, 36)
+// sizeof(Particle) == 36 bytes
+// Wire size: 40 bytes (padded to multiple of 8)
+// Serialization: memcpy + 4 bytes padding
 ```
 
 ### Variable Types (Minimal Overhead)
@@ -142,6 +143,8 @@ Structs containing vectors or variable-length strings use an 8-byte size header 
 │ [Size: 8 bytes] [Inline Section] [Variable Data Section]     │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+All struct sizes (fixed and variable) are padded to multiples of 8 bytes, and variable section data is 8-byte aligned, enabling safe zero-copy access via `reinterpret_cast`.
 
 ## When to Use ZMEM
 

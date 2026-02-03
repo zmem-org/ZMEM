@@ -9,7 +9,7 @@ This document provides a detailed technical comparison between **ZMEM** and **Ca
 | **Primary Goal** | Maximum performance, zero overhead | Zero-copy with schema evolution + RPC |
 | **Schema Evolution** | ❌ Not supported | ✅ Forward-compatible |
 | **Fixed Struct Overhead** | **0 bytes** | 8-24 bytes (segment + pointers) |
-| **Alignment** | Natural (1/2/4/8/16-byte) | 64-bit words (8-byte minimum) |
+| **Alignment** | 8-byte struct sizes, 8-byte variable data | 64-bit words (8-byte minimum) |
 | **Zero-Copy Read** | ✅ Yes | ✅ Yes |
 | **Direct memcpy** | ✅ Yes (fixed structs) | ❌ No (pointer-based) |
 | **Built-in RPC** | ❌ No | ✅ Yes (with pipelining) |
@@ -24,7 +24,8 @@ This document provides a detailed technical comparison between **ZMEM** and **Ca
 ZMEM assumes **all communicating parties use identical schemas** at compile time. This enables:
 
 - **Zero overhead** for fixed structs (direct `memcpy`)
-- **Natural alignment** (no 8-byte padding waste)
+- **8-byte struct sizes** (all structs padded to multiples of 8)
+- **8-byte alignment** for variable section data (safe zero-copy access)
 - **Fixed offsets** known at compile time
 - **No pointers** in fixed struct wire format
 - **Compile-time validation** via type signatures
@@ -152,29 +153,30 @@ Total: 24 bytes
 | Data | 8 bytes | 8 bytes |
 | **Total** | **8 bytes** | **24 bytes** |
 
-### Variable Data: Entity { id: u64, name: str, weights: [f32] }
+### Variable Data: Entity { id: u64, name: string, weights: [f32] }
 
 #### ZMEM Wire Format
 
 ```
 Offset  Size  Content
 ------  ----  -------
-0       8     size = 108 (payload after this field)
+0       8     size = 64 (content size, padded to 8-byte boundary)
 8       8     id = 123
-16      8     name.offset = 32
+16      8     name.offset = 40 (relative to byte 8, 8-byte aligned)
 24      8     name.length = 5
-32      8     weights.offset = 37
+32      8     weights.offset = 48 (relative to byte 8, 8-byte aligned)
 40      8     weights.count = 3
-48      32    name data: "Alice" (fixed str[32], zero-padded)
-80      4     weights[0] = 1.0
-84      4     weights[1] = 2.0
-88      4     weights[2] = 3.0
+48      5     name data: "Alice"
+53      3     alignment padding (to reach 8-byte boundary for weights)
+56      4     weights[0] = 1.0
+60      4     weights[1] = 2.0
+64      4     weights[2] = 3.0
+68      4     end padding (to reach 64 bytes content)
 ------
-Total: 92 bytes (with str[32])
-
-Or with variable-length string:
-Total: 65 bytes (8 + 57 payload)
+Total: 72 bytes (8 header + 64 content)
 ```
+
+Note: All variable section data is 8-byte aligned for safe zero-copy access.
 
 #### Cap'n Proto Wire Format
 
@@ -233,7 +235,7 @@ Cap'n Proto aligns all structs to 64-bit boundaries:
 | { a: u32 } | 4 bytes | 4 bytes | 8 bytes | 4 bytes |
 | { a: u64 } | 8 bytes | 8 bytes | 8 bytes | 0 bytes |
 
-**ZMEM uses natural alignment**, so a `u8` field only takes 1 byte. Cap'n Proto pads everything to 8-byte words.
+**ZMEM uses 8-byte struct sizes** - all structs are padded to multiples of 8 bytes. Within structs, fields use natural alignment. Variable section data also uses 8-byte alignment. This is similar to Cap'n Proto's 64-bit word alignment, but ZMEM allows sub-8-byte fields within the inline section.
 
 ---
 
@@ -880,7 +882,7 @@ Each is 64 bits with a 2-bit tag.
 | Schema evolution | ❌ | ✅ | **Cap'n Proto** |
 | RPC system | ❌ | ✅ Full-featured | **Cap'n Proto** |
 | Serialization speed | `memcpy` | Arena + setup | **ZMEM** |
-| Alignment efficiency | Natural | 64-bit words | **ZMEM** |
+| Alignment efficiency | 8-byte struct sizes + variable data | 64-bit words | Similar |
 | Boolean packing | 1 byte each | 1 bit each | **Cap'n Proto** |
 | Fixed-size strings | ✅ `str[N]` | ❌ | **ZMEM** |
 | Maps | ✅ Native | ❌ Manual | **ZMEM** |

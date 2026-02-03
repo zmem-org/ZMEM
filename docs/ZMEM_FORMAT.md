@@ -2698,7 +2698,9 @@ Rationale: Little-endian is native to x86, x86-64, ARM (in default mode), and Ap
 
 ### Alignment Rules
 
-ZMEM uses **natural alignment**:
+ZMEM uses **natural alignment** for fields within structs and **8-byte alignment** for struct sizes and variable data:
+
+#### Inline Section Alignment
 
 1. **Primitive alignment**: Each primitive type is aligned to its size
    - `i8`, `u8`, `bool`: 1-byte alignment
@@ -2711,11 +2713,28 @@ ZMEM uses **natural alignment**:
 
 3. **Padding**: Inserted as needed to satisfy alignment constraints
    - Between fields to align subsequent fields
-   - At end of struct to ensure `sizeof(struct)` is a multiple of struct alignment
+   - At end of struct to ensure wire size is a **multiple of 8 bytes**
 
-4. **Array alignment**: Same as element alignment (no additional padding)
+4. **Fixed struct sizes**: All fixed struct wire sizes are padded to **multiples of 8 bytes**. This ensures safe zero-copy access in arrays/vectors of structs.
 
-5. **Reference type alignment**: Vector references (`offset` + `count`) and string references (`offset` + `length`) are **always 8-byte aligned**, regardless of platform pointer size. This ensures wire format compatibility between 32-bit and 64-bit systems.
+5. **Array alignment**: Same as element alignment (no additional padding between elements)
+
+6. **Reference type alignment**: Vector references (`offset` + `count`) and string references (`offset` + `length`) are **always 8-byte aligned**, regardless of platform pointer size. This ensures wire format compatibility between 32-bit and 64-bit systems.
+
+#### Variable Section Alignment (Critical for Zero-Copy Safety)
+
+7. **Variable section data is 8-byte aligned**: All data in the variable section (vector elements, string data) starts at an 8-byte aligned offset relative to the inline section start. This ensures:
+   - Safe `reinterpret_cast` to element pointers for zero-copy access
+   - Proper alignment for all primitive types up to 64-bit
+   - Portability across architectures (x86, ARM, etc.)
+
+8. **Variable structs are padded to 8-byte boundaries**: The total serialized size of a variable struct (inline section + variable section) is always a multiple of 8 bytes. This ensures:
+   - Nested variable structs maintain alignment for subsequent fields
+   - Arrays of variable structs (`[VariableType]`) remain properly aligned
+
+**Why 8-byte alignment?** Without alignment padding, vector data could start at arbitrary offsets. For example, a `vector<int32_t>` following a 5-byte string would have its elements at a non-4-byte-aligned address. Accessing such data via `reinterpret_cast` is undefined behavior in C++. While x86 tolerates misaligned access with a small performance penalty, other architectures (ARM, etc.) may crash or corrupt data. The 8-byte alignment rule ensures all types up to 64-bit can be safely accessed via zero-copy spans.
+
+**Trade-off**: This adds padding bytes (up to 7 bytes per variable field), slightly increasing message size. For the typical case, overhead is minimal (~5-10%), and the benefit is safe, portable, high-performance zero-copy access on all platforms.
 
 **Unaligned access note**: ZMEM assumes buffers are properly aligned for direct memory access. On platforms without hardware unaligned access support (some embedded ARM, older MIPS, etc.), implementations should either:
 - Ensure input buffers are aligned to the struct's alignment requirement
@@ -2913,22 +2932,39 @@ The inline section has a fixed size determined by the struct definition:
 
 #### Variable Section Layout
 
-The variable section contains array data for all vector fields, concatenated with proper alignment:
+The variable section contains array data for all vector fields, with **8-byte alignment padding** before each field's data:
+
+```
+┌─────────┬────────────────┬─────────┬────────────────┬─────────┐
+│ padding │  field₀ data   │ padding │  field₁ data   │   ...   │
+│ (0-7 B) │                │ (0-7 B) │                │         │
+└─────────┴────────────────┴─────────┴────────────────┴─────────┘
+```
+
+Each field's data starts at an 8-byte aligned offset (relative to the inline section start). This ensures safe zero-copy access via `reinterpret_cast` on all platforms.
 
 **For vectors of fixed types** (trivially copyable):
 ```
-[element₀][element₁]...[elementₙ₋₁]
+[padding][element₀][element₁]...[elementₙ₋₁]
 ```
-Contiguous, no overhead.
+Elements are contiguous after the alignment padding.
+
+**For strings**:
+```
+[padding][char₀][char₁]...[charₙ₋₁]
+```
+String data starts at 8-byte aligned offset. The string itself is not null-terminated (length is explicit in the reference).
 
 **For vectors of variable types** (structs with vectors):
 ```
-┌─────────────────────────────────────────┬────────────────────────────────────┐
-│  Offset Table (count × 8 bytes)         │  Serialized Elements               │
-│  [off₀][off₁]...[offₙ₋₁]                │  [elem₀][elem₁]...[elemₙ₋₁]        │
-└─────────────────────────────────────────┴────────────────────────────────────┘
+┌─────────┬─────────────────────────────────────────┬────────────────────────────────────┐
+│ padding │  Offset Table (count × 8 bytes)         │  Serialized Elements               │
+│ (0-7 B) │  [off₀][off₁]...[offₙ₋₁]                │  [elem₀][elem₁]...[elemₙ₋₁]        │
+└─────────┴─────────────────────────────────────────┴────────────────────────────────────┘
 ```
-Each offset points to that element's inline section start. Elements include their own inline + variable sections.
+Each offset points to that element's inline section start. Elements include their own inline + variable sections, each padded to 8-byte boundaries.
+
+**End padding**: The total size of a variable struct (inline + variable sections) is padded to a multiple of 8 bytes. This ensures nested variable structs maintain alignment for subsequent fields.
 
 #### Offset Semantics
 
@@ -2961,36 +2997,42 @@ Scene with:
 - Entity: `Entity{id::u64,weights::[f32]}`
 - Scene: `Scene{entities::[Entity{id::u64,weights::[f32]}],scale::f32}`
 
-**Wire layout** (offsets relative to byte 8):
+**Wire layout** (with 8-byte alignment padding):
 
 ```
 Wire    Data
 Offset  Offset  Size  Content
 ------  ------  ----  -------
-0       -       8     Total Size = 100 (bytes after this field)
-8       0       8     entities.offset = 24
+0       -       8     Total Size = 128 (bytes after this field)
+8       0       8     entities.offset = 24 (points to offset_table)
 16      8       8     entities.count = 2
 24      16      4     scale = 1.0f
-28      20      4     [padding to 8-byte align]
+28      20      4     [padding to 8-byte boundary]
         ─────── Inline section: 24 bytes ───────
-32      24      8     offset_table[0] = 40 → Entity 0
-40      32      8     offset_table[1] = 72 → Entity 1
-        ─────── Entity 0 (inline + variable) ───────
-48      40      8     Entity 0: id = 1
-56      48      8     Entity 0: weights.offset = 64
-64      56      8     Entity 0: weights.count = 2
-72      64      4     weights[0] = 1.0f
-76      68      4     weights[1] = 2.0f
-        ─────── Entity 1 (inline + variable) ───────
-80      72      8     Entity 1: id = 2
-88      80      8     Entity 1: weights.offset = 96
-96      88      8     Entity 1: weights.count = 3
-104     96      4     weights[0] = 3.0f
-108     100     4     weights[1] = 4.0f
-112     104     4     weights[2] = 5.0f
+        ─────── Variable section (8-byte aligned) ───────
+32      24      8     offset_table[0] = 40 → Entity 0 (relative to Scene's byte 8)
+40      32      8     offset_table[1] = 80 → Entity 1
+        ─────── Entity 0 (size header + content) ───────
+48      40      8     Entity 0: size = 32 (inline + variable)
+56      -       8     Entity 0: id = 1
+64      -       8     Entity 0: weights.offset = 24 (relative to Entity 0's byte 8 = position 56)
+72      -       8     Entity 0: weights.count = 2
+80      -       8     Entity 0: weights data [1.0f, 2.0f] (8-byte aligned, at offset 24 from 56 = 80)
+        ─────── Entity 1 (size header + content) ───────
+88      80      8     Entity 1: size = 40 (inline + variable + 4 bytes padding)
+96      -       8     Entity 1: id = 2
+104     -       8     Entity 1: weights.offset = 24
+112     -       8     Entity 1: weights.count = 3
+120     -       12    Entity 1: weights data [3.0f, 4.0f, 5.0f]
+132     -       4     Entity 1: [end padding to 8-byte boundary]
 ────────────────────────────────────────────────
-Total: 116 bytes (8 size + 108 data)
+Total: 136 bytes (8 size header + 128 content)
 ```
+
+**Key alignment points:**
+- Variable section data starts at 8-byte aligned offsets (positions 32, 80, 120)
+- Entity 1 has 4 bytes of end padding because its content (24 inline + 12 data = 36) is not a multiple of 8
+- All vector data pointers are 8-byte aligned for safe zero-copy access
 
 ---
 

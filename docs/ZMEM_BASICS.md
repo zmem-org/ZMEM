@@ -16,19 +16,24 @@ ZMEM categorizes all types into two categories:
 
 ### Fixed Types
 
-Fixed types are **trivially copyable** - they can be serialized with a direct `memcpy`. These have **zero serialization overhead**.
+Fixed types are **trivially copyable** - they can be serialized with a direct `memcpy`. Struct sizes are padded to multiples of 8 bytes for safe zero-copy access.
 
 ```cpp
-// Fixed types - written directly to wire
-int32_t x = 42;           // 4 bytes on wire
-float y = 3.14f;          // 4 bytes on wire
-bool flag = true;         // 1 byte on wire
+// Primitives - written directly to wire (within structs)
+int32_t x = 42;           // 4 bytes
+float y = 3.14f;          // 4 bytes
+bool flag = true;         // 1 byte
 
-// Fixed struct - also zero overhead!
+// Fixed struct - padded to multiple of 8 bytes
 struct Point {
     float x, y;
 };
-Point p{1.0f, 2.0f};      // 8 bytes on wire (same as sizeof(Point))
+Point p{1.0f, 2.0f};      // 8 bytes on wire (sizeof=8, already multiple of 8)
+
+struct Triangle {
+    float vertices[9];    // 36 bytes data
+};
+Triangle t{...};          // 40 bytes on wire (padded to multiple of 8)
 ```
 
 **Fixed types include:**
@@ -84,13 +89,15 @@ Variable structs use a three-part layout:
 └────────────────────────────────────────────────────────────┘
 ```
 
-**Size Header (8 bytes):** Total byte count of inline + variable sections
+**Size Header (8 bytes):** Total byte count of inline + variable sections (including alignment padding)
 
 **Inline Section:** Fixed-size portion containing:
 - Fixed members written directly
 - 16-byte references for vectors/strings (offset + count/length)
 
-**Variable Section:** Actual data for vectors and strings
+**Variable Section:** Actual data for vectors and strings, with **8-byte alignment padding** before each field's data
+
+**Alignment:** All variable section data is 8-byte aligned for safe zero-copy access. The total content size is also padded to a multiple of 8 bytes.
 
 #### Example: Variable Struct
 
@@ -103,21 +110,23 @@ struct Entity {
 Entity e{42, {10, 20, 30}};
 ```
 
-Wire layout:
+Wire layout (with 8-byte alignment):
 
 ```
 Offset  Content
 ──────  ───────────────────────────────────
-0       [Size: 36 bytes (8 + 16 + 12)]     ← 8-byte header
-8       [id: 42]                           ← inline: uint64_t
-16      [offset: 24, count: 3]             ← inline: vector reference
-32      [10] [20] [30]                     ← variable: vector data
+0       [Size: 40 bytes]                   ← 8-byte header (content is padded to 40)
+8       [id: 42]                           ← inline: uint64_t (8 bytes)
+16      [offset: 24, count: 3]             ← inline: vector reference (16 bytes)
+32      [padding: 0]                       ← 8-byte alignment padding (already aligned)
+32      [10] [20] [30]                     ← variable: vector data (12 bytes)
+44      [padding: 4 bytes]                 ← end padding to reach 40 bytes content
 ──────  ───────────────────────────────────
-Total: 44 bytes (8 header + 36 content)
+Total: 48 bytes (8 header + 40 content)
 ```
 
 The vector reference contains:
-- **offset**: Byte position of data relative to byte 8 (here: 24)
+- **offset**: Byte position of data relative to byte 8 (here: 24, which is 8-byte aligned)
 - **count**: Number of elements (here: 3)
 
 ### Strings
@@ -133,18 +142,21 @@ struct Message {
 Message m{1000, "Hi"};
 ```
 
-Wire layout:
+Wire layout (with 8-byte alignment):
 
 ```
 Offset  Content
 ──────  ───────────────────────────────────
-0       [Size: 26 bytes]                   ← 8-byte header
-8       [timestamp: 1000]                  ← inline: uint64_t
-16      [offset: 24, length: 2]            ← inline: string reference
-32      [H] [i]                            ← variable: string data (no null terminator)
+0       [Size: 32 bytes]                   ← 8-byte header (content padded to 32)
+8       [timestamp: 1000]                  ← inline: uint64_t (8 bytes)
+16      [offset: 24, length: 2]            ← inline: string reference (16 bytes)
+32      [H] [i]                            ← variable: string data at 8-byte aligned offset
+34      [padding: 6 bytes]                 ← end padding to reach 32 bytes content
 ──────  ───────────────────────────────────
-Total: 34 bytes
+Total: 40 bytes (8 header + 32 content)
 ```
+
+String data is 8-byte aligned for consistency with vector data, ensuring all variable section pointers are safely dereferenceable.
 
 ### Vectors and Arrays
 

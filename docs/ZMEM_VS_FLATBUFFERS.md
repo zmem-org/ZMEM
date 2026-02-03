@@ -114,18 +114,21 @@ Even in the most compact case, FlatBuffers tables have:
 ```
 Offset  Size  Content
 ------  ----  -------
-0       8     size = 36 (payload after this field)
+0       8     size = 40 (content size, padded to 8-byte boundary)
 8       8     id = 123
-16      8     weights.offset = 24
+16      8     weights.offset = 24 (relative to byte 8, 8-byte aligned)
 24      8     weights.count = 3
 32      4     weights[0] = 1.0
 36      4     weights[1] = 2.0
 40      4     weights[2] = 3.0
+44      4     end padding (to reach 40 bytes content)
 ------
-Total: 44 bytes (8 header + 36 payload)
+Total: 48 bytes (8 header + 40 content)
 ```
 
-**Overhead: 8 bytes (size header)**
+**Overhead: 8 bytes (size header) + alignment padding**
+
+Note: All variable section data is 8-byte aligned for safe zero-copy access.
 
 #### FlatBuffers Wire Format
 
@@ -534,12 +537,10 @@ Array → count header + elements
 
 ### Alignment
 
-**ZMEM**: Natural alignment (size-based).
-- 1-byte types: 1-byte aligned
-- 2-byte types: 2-byte aligned
-- 4-byte types: 4-byte aligned
-- 8-byte types: 8-byte aligned
-- 16-byte types: 16-byte aligned
+**ZMEM**:
+- All struct sizes: Padded to multiples of 8 bytes
+- Fields within structs: Natural alignment (1/2/4/8/16-byte based on type size)
+- Variable section data: Each field's data starts at 8-byte aligned offset
 
 **FlatBuffers**: Configurable, defaults to natural.
 - `force_align` attribute for custom alignment
@@ -551,7 +552,7 @@ Both use **little-endian** for all multi-byte values.
 
 ### Padding
 
-**ZMEM**: Minimal padding following C struct rules.
+**ZMEM**: Minimal padding for inline data following C struct rules. Variable section data is 8-byte aligned with padding as needed. Total content size is padded to 8-byte boundary.
 
 **FlatBuffers**: May insert padding for:
 - Field alignment within tables
