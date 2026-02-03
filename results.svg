@@ -1,4 +1,5 @@
 <svg width="1000" height="600" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg" version="1.1">
+  <rect width="100%" height="100%" fill="#FFFFFF"/>
   <defs>
     <linearGradient id="grad0" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
@@ -70,13 +71,13 @@
   </g>
   <text x="204.79" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 204.79, 480.00)">ZMEM Write</text>
   <g>
-    <rect x="289.58" y="338.21" width="94.58" height="121.79" fill="url(#grad1)" rx="5" ry="5" />
-    <text x="336.88" y="328.21" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1587</text>
+    <rect x="289.58" y="323.26" width="94.58" height="136.74" fill="url(#grad1)" rx="5" ry="5" />
+    <text x="336.88" y="313.26" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1782</text>
   </g>
   <text x="336.88" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 336.88, 480.00)">Cap'n Proto Write</text>
   <g>
-    <rect x="421.67" y="373.42" width="94.58" height="86.58" fill="url(#grad2)" rx="5" ry="5" />
-    <text x="468.96" y="363.42" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1128</text>
+    <rect x="421.67" y="366.32" width="94.58" height="93.68" fill="url(#grad2)" rx="5" ry="5" />
+    <text x="468.96" y="356.32" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">1221</text>
   </g>
   <text x="468.96" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 468.96, 480.00)">FlatBuffers Write</text>
   <g>
@@ -85,13 +86,13 @@
   </g>
   <text x="601.04" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 601.04, 480.00)">ZMEM Read</text>
   <g>
-    <rect x="685.83" y="412.33" width="94.58" height="47.67" fill="url(#grad4)" rx="5" ry="5" />
-    <text x="733.12" y="402.33" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">621</text>
+    <rect x="685.83" y="407.81" width="94.58" height="52.19" fill="url(#grad4)" rx="5" ry="5" />
+    <text x="733.12" y="397.81" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">680</text>
   </g>
   <text x="733.12" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 733.12, 480.00)">Cap'n Proto Read</text>
   <g>
-    <rect x="817.92" y="393.93" width="94.58" height="66.07" fill="url(#grad5)" rx="5" ry="5" />
-    <text x="865.21" y="383.93" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">861</text>
+    <rect x="817.92" y="393.84" width="94.58" height="66.16" fill="url(#grad5)" rx="5" ry="5" />
+    <text x="865.21" y="383.84" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24.0" font-weight="bold" fill="#333">862</text>
   </g>
   <text x="865.21" y="480.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16.0" font-weight="bold" fill="#333" transform="rotate(-45.0, 865.21, 480.00)">FlatBuffers Read</text>
 </svg>
