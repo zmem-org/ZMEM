@@ -20,11 +20,10 @@ ZMEM prioritizes performance. It requires that a sender and receiver agree on th
 
 ### Non-Goals
 
-- Variable-length strings (use fixed-size `str[N]` instead)
-- Variable-length map keys (use integer or `str[N]` keys)
 - Schema evolution / backwards compatibility
 - Compression
 - Self-describing format (requires schema knowledge)
+- Runtime type identification (receiver must know expected type)
 
 ### Schema Compatibility
 
