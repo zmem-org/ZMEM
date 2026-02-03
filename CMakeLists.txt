@@ -55,14 +55,19 @@ if(ZMEM_BENCH_COMPARISONS)
   endif()
 
   if(CAN_BUILD_COMPARISON)
-    # Fetch bencher library
-    FetchContent_Declare(
-      bencher
-      GIT_REPOSITORY https://github.com/stephenberry/bencher.git
-      GIT_TAG main
-      GIT_SHALLOW TRUE
-    )
-    FetchContent_MakeAvailable(bencher)
+    # Use local bencher library (for development) or fetch from GitHub
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../bencher/CMakeLists.txt")
+      set(bencher_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../bencher")
+      message(STATUS "Using local bencher from ${bencher_SOURCE_DIR}")
+    else()
+      FetchContent_Declare(
+        bencher
+        GIT_REPOSITORY https://github.com/stephenberry/bencher.git
+        GIT_TAG main
+        GIT_SHALLOW TRUE
+      )
+      FetchContent_MakeAvailable(bencher)
+    endif()
 
     # Add comparison benchmark executable
     add_executable(zmem_benchmark

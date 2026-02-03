@@ -467,7 +467,11 @@ int main() {
    bencher::print_results(stage);
 
    bencher::save_file(bencher::to_markdown(stage), "results.md");
-   bencher::save_file(bencher::bar_chart(stage), "results.svg");
+
+   chart_config chart_cfg;
+   chart_cfg.margin_bottom = 140;
+   chart_cfg.font_size_bar_label = 16.0;
+   bencher::save_file(bencher::bar_chart(stage, chart_cfg), "results.svg");
 
    return 0;
 }
