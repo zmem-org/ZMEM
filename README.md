@@ -155,6 +155,16 @@ Structs containing vectors or variable-length strings use an 8-byte size header 
 | Field access | Compile-time offset | Compile-time offset | Pointer chase | vtable lookup |
 | Random access (mmap) | O(1) direct | O(1) with offset | O(1) with pointer | O(1) with vtable |
 
+## Building Benchmarks
+
+The benchmarks use [Glaze](https://github.com/stephenberry/glaze) as the ZMEM implementation.
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+./build/zmem_bench
+```
+
 ## License
 
 [MIT License](LICENSE)

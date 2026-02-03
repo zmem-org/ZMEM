@@ -1,0 +1,11 @@
+# Build directory
+/build
+
+# Generated benchmark files
+benchmarks/benchmark.capnp.c++
+benchmarks/benchmark.capnp.h
+benchmarks/benchmark_generated.h
+
+# Benchmark output
+results.md
+results.svg

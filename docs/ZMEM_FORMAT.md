@@ -1926,13 +1926,17 @@ Unlike `str[N]`, variable-length strings have no compile-time size limit and are
 └────────────────┴────────────────┘
 ```
 
-- `offset`: byte offset to string data in variable section (relative to byte 8 of containing struct)
-- `length`: byte length of string (NOT including any null terminator)
+```cpp
+struct alignas(8) zmem_string_ref {
+    uint64_t offset;  // Byte offset to string data (relative to byte 8 of containing struct)
+    uint64_t length;  // Byte length of string (NOT including any null terminator)
+};
+```
 
 **Variable section**: Raw UTF-8 bytes, NOT null-terminated (length is explicit).
 
 **Size**: 16 bytes inline + variable data
-**Alignment**: 8 bytes
+**Alignment**: 8 bytes (platform-independent, required for 32-bit/64-bit compatibility)
 
 | Type | Inline Size | Alignment | Data Location |
 |------|-------------|-----------|---------------|
@@ -2198,14 +2202,14 @@ Structs may contain vector fields (`std::vector<T>` in C++, `Vec<T>` in Rust). T
 Each vector field is stored in the inline section as a **vector reference**:
 
 ```cpp
-struct zmem_vector_ref {
+struct alignas(8) zmem_vector_ref {
     uint64_t offset;  // Byte offset to array data (see reference point below)
     uint64_t count;   // Number of elements
 };
 ```
 
 - Size: 16 bytes
-- Alignment: 8 bytes
+- Alignment: 8 bytes (platform-independent, required for 32-bit/64-bit compatibility)
 
 The actual array data is stored in the **variable section** after the inline section.
 
@@ -2710,6 +2714,8 @@ ZMEM uses **natural alignment**:
    - At end of struct to ensure `sizeof(struct)` is a multiple of struct alignment
 
 4. **Array alignment**: Same as element alignment (no additional padding)
+
+5. **Reference type alignment**: Vector references (`offset` + `count`) and string references (`offset` + `length`) are **always 8-byte aligned**, regardless of platform pointer size. This ensures wire format compatibility between 32-bit and 64-bit systems.
 
 **Unaligned access note**: ZMEM assumes buffers are properly aligned for direct memory access. On platforms without hardware unaligned access support (some embedded ARM, older MIPS, etc.), implementations should either:
 - Ensure input buffers are aligned to the struct's alignment requirement
@@ -4082,7 +4088,8 @@ Variable-length strings use a reference type for the inline section:
 #include <string_view>
 
 // Inline representation of a variable-length string
-struct zmem_string_ref {
+// alignas(8) ensures consistent layout on both 32-bit and 64-bit platforms
+struct alignas(8) zmem_string_ref {
     uint64_t offset;    // byte offset to string data (relative to byte 8 of containing struct)
     uint64_t length;    // byte length (NOT null-terminated)
 };
