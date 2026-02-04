@@ -18,6 +18,15 @@
 #include <string>
 #include <vector>
 
+namespace {
+inline uint32_t mix_u32(uint32_t x) noexcept {
+   x ^= x << 13;
+   x ^= x >> 17;
+   x ^= x << 5;
+   return x;
+}
+} // namespace
+
 // ============================================================================
 // ZMEM Data Structures (using Glaze reflection)
 // ============================================================================
@@ -123,6 +132,94 @@ size_t read_zmem_zero_copy_lazy(const std::string& buffer) {
    checksum += static_cast<size_t>(view.get<5>());
    checksum += view.get<6>() ? 1 : 0;
    checksum += view.get<7>() ? 1 : 0;
+
+   return checksum;
+}
+
+// Selective zero-copy read: access a small subset of fields based on selector
+size_t read_zmem_zero_copy_selective(const std::string& buffer, uint32_t selector) {
+   glz::lazy_zmem_view<zmem_data::TestObj> view{buffer};
+   size_t checksum = 0;
+
+   auto fixed_obj = view.get<0>();
+   const uint32_t array_sel = selector & 0x3u;
+   if (array_sel == 0u) {
+      auto arr = fixed_obj.get<0>();
+      if (arr.size() > 0) {
+         const size_t idx = (selector >> 2) % arr.size();
+         checksum += static_cast<size_t>(arr[idx]);
+      }
+   }
+   else if (array_sel == 1u) {
+      auto arr = fixed_obj.get<1>();
+      if (arr.size() > 0) {
+         const size_t idx = (selector >> 2) % arr.size();
+         checksum += static_cast<size_t>(arr[idx]);
+      }
+   }
+   else {
+      auto arr = fixed_obj.get<2>();
+      if (arr.size() > 0) {
+         const size_t idx = (selector >> 2) % arr.size();
+         checksum += static_cast<size_t>(arr[idx]);
+      }
+   }
+
+   auto name_obj = view.get<1>();
+   std::string_view name{};
+   switch ((selector >> 6) % 5u) {
+      case 0: name = name_obj.get<0>(); break;
+      case 1: name = name_obj.get<1>(); break;
+      case 2: name = name_obj.get<2>(); break;
+      case 3: name = name_obj.get<3>(); break;
+      default: name = name_obj.get<4>(); break;
+   }
+   checksum += name.size();
+   if (!name.empty()) {
+      checksum += static_cast<unsigned char>(name[selector % name.size()]);
+   }
+
+   auto another = view.get<2>();
+   if (selector & 0x100u) {
+      std::string_view text{};
+      switch ((selector >> 9) % 3u) {
+         case 0: text = another.get<0>(); break;
+         case 1: text = another.get<1>(); break;
+         default: text = another.get<2>(); break;
+      }
+      checksum += text.size();
+      if (!text.empty()) {
+         checksum += static_cast<unsigned char>(text[(selector >> 12) % text.size()]);
+      }
+   }
+   else {
+      auto nested = another.get<4>();
+      auto v3s = nested.get<0>();
+      if (v3s.size() > 0) {
+         const size_t idx = (selector >> 9) % v3s.size();
+         const auto v = v3s[idx];
+         checksum += static_cast<size_t>(v.x + v.y + v.z);
+      }
+      auto id = nested.get<1>();
+      checksum += id.size();
+      if (!id.empty()) {
+         checksum += static_cast<unsigned char>(id[(selector >> 12) % id.size()]);
+      }
+   }
+
+   auto root_str = view.get<4>();
+   checksum += root_str.size();
+   if (!root_str.empty()) {
+      checksum += static_cast<unsigned char>(root_str[(selector >> 16) % root_str.size()]);
+   }
+
+   if (selector & 0x200u) {
+      checksum += static_cast<size_t>(view.get<5>());
+   }
+   else {
+      checksum += view.get<6>() ? 1 : 0;
+      checksum += view.get<7>() ? 1 : 0;
+   }
 
    return checksum;
 }
@@ -272,6 +369,94 @@ size_t read_capnp_zero_copy(::capnp::MessageReader& message) {
    checksum += static_cast<size_t>(root.getNumber());
    checksum += root.getBoolean() ? 1 : 0;
    checksum += root.getAnotherBool() ? 1 : 0;
+
+   return checksum;
+}
+
+// Selective zero-copy read: access a small subset of fields based on selector
+size_t read_capnp_zero_copy_selective(::capnp::MessageReader& message, uint32_t selector) {
+   auto root = message.getRoot<::TestObject>();
+   size_t checksum = 0;
+
+   auto fixed = root.getFixedObject();
+   const uint32_t array_sel = selector & 0x3u;
+   if (array_sel == 0u) {
+      auto arr = fixed.getIntArray();
+      if (arr.size() > 0) {
+         const size_t idx = (selector >> 2) % arr.size();
+         checksum += static_cast<size_t>(arr[idx]);
+      }
+   }
+   else if (array_sel == 1u) {
+      auto arr = fixed.getFloatArray();
+      if (arr.size() > 0) {
+         const size_t idx = (selector >> 2) % arr.size();
+         checksum += static_cast<size_t>(arr[idx]);
+      }
+   }
+   else {
+      auto arr = fixed.getDoubleArray();
+      if (arr.size() > 0) {
+         const size_t idx = (selector >> 2) % arr.size();
+         checksum += static_cast<size_t>(arr[idx]);
+      }
+   }
+
+   auto fixedName = root.getFixedNameObject();
+   kj::StringPtr name{};
+   switch ((selector >> 6) % 5u) {
+      case 0: name = fixedName.getName0(); break;
+      case 1: name = fixedName.getName1(); break;
+      case 2: name = fixedName.getName2(); break;
+      case 3: name = fixedName.getName3(); break;
+      default: name = fixedName.getName4(); break;
+   }
+   checksum += name.size();
+   if (name.size() > 0) {
+      checksum += static_cast<unsigned char>(name.cStr()[selector % name.size()]);
+   }
+
+   auto another = root.getAnotherObject();
+   if (selector & 0x100u) {
+      kj::StringPtr text{};
+      switch ((selector >> 9) % 3u) {
+         case 0: text = another.getString(); break;
+         case 1: text = another.getAnotherString(); break;
+         default: text = another.getEscapedText(); break;
+      }
+      checksum += text.size();
+      if (text.size() > 0) {
+         checksum += static_cast<unsigned char>(text.cStr()[(selector >> 12) % text.size()]);
+      }
+   }
+   else {
+      auto nested = another.getNestedObject();
+      auto v3s = nested.getV3s();
+      if (v3s.size() > 0) {
+         const size_t idx = (selector >> 9) % v3s.size();
+         auto v = v3s[idx];
+         checksum += static_cast<size_t>(v.getX() + v.getY() + v.getZ());
+      }
+      auto id = nested.getId();
+      checksum += id.size();
+      if (id.size() > 0) {
+         checksum += static_cast<unsigned char>(id.cStr()[(selector >> 12) % id.size()]);
+      }
+   }
+
+   auto root_str = root.getString();
+   checksum += root_str.size();
+   if (root_str.size() > 0) {
+      checksum += static_cast<unsigned char>(root_str.cStr()[(selector >> 16) % root_str.size()]);
+   }
+
+   if (selector & 0x200u) {
+      checksum += static_cast<size_t>(root.getNumber());
+   }
+   else {
+      checksum += root.getBoolean() ? 1 : 0;
+      checksum += root.getAnotherBool() ? 1 : 0;
+   }
 
    return checksum;
 }
@@ -443,6 +628,105 @@ size_t read_flatbuffer_zero_copy(const benchmark::TestObject* fb) {
    checksum += static_cast<size_t>(fb->number());
    checksum += fb->boolean() ? 1 : 0;
    checksum += fb->another_bool() ? 1 : 0;
+
+   return checksum;
+}
+
+// Selective zero-copy read: access a small subset of fields based on selector
+size_t read_flatbuffer_zero_copy_selective(const benchmark::TestObject* fb, uint32_t selector) {
+   size_t checksum = 0;
+
+   if (auto fixed = fb->fixed_object()) {
+      const uint32_t array_sel = selector & 0x3u;
+      if (array_sel == 0u) {
+         if (auto arr = fixed->int_array()) {
+            if (arr->size() > 0) {
+               const size_t idx = (selector >> 2) % arr->size();
+               checksum += static_cast<size_t>(arr->Get(idx));
+            }
+         }
+      }
+      else if (array_sel == 1u) {
+         if (auto arr = fixed->float_array()) {
+            if (arr->size() > 0) {
+               const size_t idx = (selector >> 2) % arr->size();
+               checksum += static_cast<size_t>(arr->Get(idx));
+            }
+         }
+      }
+      else {
+         if (auto arr = fixed->double_array()) {
+            if (arr->size() > 0) {
+               const size_t idx = (selector >> 2) % arr->size();
+               checksum += static_cast<size_t>(arr->Get(idx));
+            }
+         }
+      }
+   }
+
+   if (auto fn = fb->fixed_name_object()) {
+      const flatbuffers::String* name = nullptr;
+      switch ((selector >> 6) % 5u) {
+         case 0: name = fn->name0(); break;
+         case 1: name = fn->name1(); break;
+         case 2: name = fn->name2(); break;
+         case 3: name = fn->name3(); break;
+         default: name = fn->name4(); break;
+      }
+      if (name) {
+         checksum += name->size();
+         if (name->size() > 0) {
+            checksum += static_cast<unsigned char>(name->c_str()[selector % name->size()]);
+         }
+      }
+   }
+
+   if (auto ao = fb->another_object()) {
+      if (selector & 0x100u) {
+         const flatbuffers::String* text = nullptr;
+         switch ((selector >> 9) % 3u) {
+            case 0: text = ao->string(); break;
+            case 1: text = ao->another_string(); break;
+            default: text = ao->escaped_text(); break;
+         }
+         if (text) {
+            checksum += text->size();
+            if (text->size() > 0) {
+               checksum += static_cast<unsigned char>(text->c_str()[(selector >> 12) % text->size()]);
+            }
+         }
+      }
+      else if (auto nested = ao->nested_object()) {
+         if (auto v3s = nested->v3s()) {
+            if (v3s->size() > 0) {
+               const size_t idx = (selector >> 9) % v3s->size();
+               const auto* v = v3s->Get(idx);
+               checksum += static_cast<size_t>(v->x() + v->y() + v->z());
+            }
+         }
+         if (auto id = nested->id()) {
+            checksum += id->size();
+            if (id->size() > 0) {
+               checksum += static_cast<unsigned char>(id->c_str()[(selector >> 12) % id->size()]);
+            }
+         }
+      }
+   }
+
+   if (auto root_str = fb->string()) {
+      checksum += root_str->size();
+      if (root_str->size() > 0) {
+         checksum += static_cast<unsigned char>(root_str->c_str()[(selector >> 16) % root_str->size()]);
+      }
+   }
+
+   if (selector & 0x200u) {
+      checksum += static_cast<size_t>(fb->number());
+   }
+   else {
+      checksum += fb->boolean() ? 1 : 0;
+      checksum += fb->another_bool() ? 1 : 0;
+   }
 
    return checksum;
 }
@@ -631,14 +915,27 @@ int main() {
    // Zero-Copy Read Benchmarks
    // ========================================================================
 
-   bencher::stage zero_copy_stage{"Zero-Copy Read Performance"};
+   bencher::stage zero_copy_stage{"Zero-Copy Read (Selective Access)"};
    zero_copy_stage.baseline = "FlatBuffers";
+   zero_copy_stage.throughput_units_divisor = 1e3;
+   zero_copy_stage.throughput_units_label = "Kops/s";
+   zero_copy_stage.processed_units_label = "Ops";
+   zero_copy_stage.cold_cache = false;
+
+   // Batch iterations to avoid 0 ns measurements on very fast zero-copy paths.
+   constexpr size_t zero_copy_batch = 16 * 1024;
 
    // ZMEM zero-copy: access fields directly from buffer using lazy_zmem API
    zero_copy_stage.run("ZMEM", [&] {
-      auto checksum = read_zmem_zero_copy_lazy(zmem_buffer);
-      bencher::do_not_optimize(checksum);
-      return zmem_buffer.size();
+      uint32_t state = 0x12345678u;
+      size_t checksum = 0;
+      for (size_t i = 0; i < zero_copy_batch; ++i) {
+         state = mix_u32(state + static_cast<uint32_t>(checksum));
+         checksum += read_zmem_zero_copy_selective(zmem_buffer, state);
+      }
+      volatile size_t sink = checksum;
+      bencher::do_not_optimize(sink);
+      return zero_copy_batch;
    });
 
    zero_copy_stage.run("Cap'n Proto", [&] {
@@ -647,16 +944,28 @@ int main() {
          reinterpret_cast<const capnp::word*>(bytes.begin()),
          bytes.size() / sizeof(capnp::word));
       ::capnp::FlatArrayMessageReader message(words);
-      auto checksum = read_capnp_zero_copy(message);
-      bencher::do_not_optimize(checksum);
-      return capnp_buffer.size();
+      uint32_t state = 0x87654321u;
+      size_t checksum = 0;
+      for (size_t i = 0; i < zero_copy_batch; ++i) {
+         state = mix_u32(state + static_cast<uint32_t>(checksum));
+         checksum += read_capnp_zero_copy_selective(message, state);
+      }
+      volatile size_t sink = checksum;
+      bencher::do_not_optimize(sink);
+      return zero_copy_batch;
    });
 
    zero_copy_stage.run("FlatBuffers", [&] {
       auto fb = benchmark::GetTestObject(flatbuf_buffer.data());
-      auto checksum = read_flatbuffer_zero_copy(fb);
-      bencher::do_not_optimize(checksum);
-      return flatbuf_buffer.size();
+      uint32_t state = 0x13572468u;
+      size_t checksum = 0;
+      for (size_t i = 0; i < zero_copy_batch; ++i) {
+         state = mix_u32(state + static_cast<uint32_t>(checksum));
+         checksum += read_flatbuffer_zero_copy_selective(fb, state);
+      }
+      volatile size_t sink = checksum;
+      bencher::do_not_optimize(sink);
+      return zero_copy_batch;
    });
 
    // --------------------------------------------------------------------------
@@ -670,6 +979,7 @@ int main() {
    chart_config zero_copy_cfg;
    zero_copy_cfg.margin_bottom = 100;
    zero_copy_cfg.font_size_bar_label = 20.0;
+   zero_copy_cfg.y_axis_label = zero_copy_stage.throughput_units_label;
    bencher::save_file(bencher::bar_chart(zero_copy_stage, zero_copy_cfg), "results_zero_copy.svg");
 
    return 0;
